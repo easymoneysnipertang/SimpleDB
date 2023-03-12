@@ -8,6 +8,8 @@ import java.util.*;
  */
 public class TupleDesc implements Serializable {
 
+	private TDItem[] tdItems; //用来存放item的数组
+	
     /**
      * A help class to facilitate organizing the information of each field
      * */
@@ -42,7 +44,8 @@ public class TupleDesc implements Serializable {
      * */
     public Iterator<TDItem> iterator() {
         // some code goes here
-        return null;
+    	//数组的iterator
+        return (Iterator<TDItem>)Arrays.stream(tdItems).iterator();
     }
 
     private static final long serialVersionUID = 1L;
@@ -60,6 +63,11 @@ public class TupleDesc implements Serializable {
      */
     public TupleDesc(Type[] typeAr, String[] fieldAr) {
         // some code goes here
+    	tdItems =new TDItem[typeAr.length];//构造数组对象
+    	for(int i=0;i<typeAr.length;i++) {
+    		//构造数组中每一个元素
+    		tdItems[i]=new TDItem(typeAr[i],fieldAr[i]);
+    	}
     }
 
     /**
@@ -72,6 +80,11 @@ public class TupleDesc implements Serializable {
      */
     public TupleDesc(Type[] typeAr) {
         // some code goes here
+    	tdItems =new TDItem[typeAr.length];
+    	for(int i=0;i<typeAr.length;i++) {
+    		//匿名Item
+    		tdItems[i]=new TDItem(typeAr[i],"");
+    	}
     }
 
     /**
@@ -79,7 +92,7 @@ public class TupleDesc implements Serializable {
      */
     public int numFields() {
         // some code goes here
-        return 0;
+        return tdItems.length;
     }
 
     /**
@@ -93,7 +106,10 @@ public class TupleDesc implements Serializable {
      */
     public String getFieldName(int i) throws NoSuchElementException {
         // some code goes here
-        return null;
+        if(i<0||i>tdItems.length) {
+        	throw new NoSuchElementException("invalid");
+        }
+        return tdItems[i].fieldName;
     }
 
     /**
@@ -108,7 +124,10 @@ public class TupleDesc implements Serializable {
      */
     public Type getFieldType(int i) throws NoSuchElementException {
         // some code goes here
-        return null;
+    	if(i<0||i>tdItems.length) {
+        	throw new NoSuchElementException("invalid");
+        }
+        return tdItems[i].fieldType;
     }
 
     /**
@@ -122,7 +141,10 @@ public class TupleDesc implements Serializable {
      */
     public int fieldNameToIndex(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        for(int i=0;i<tdItems.length;i++)//遍历数组
+        	if(tdItems[i].fieldName.equals(name))
+        		return i;
+        throw new  NoSuchElementException("not found");
     }
 
     /**
@@ -131,7 +153,11 @@ public class TupleDesc implements Serializable {
      */
     public int getSize() {
         // some code goes here
-        return 0;
+    	int total=0;
+       for(int i=0;i<tdItems.length;i++) {
+    	   total+=tdItems[i].fieldType.getLen();
+       }
+       return total;
     }
 
     /**
@@ -146,7 +172,20 @@ public class TupleDesc implements Serializable {
      */
     public static TupleDesc merge(TupleDesc td1, TupleDesc td2) {
         // some code goes here
-        return null;
+        //两个数组，用于构造新的TupleDesc
+    	Type []typeAr=new Type[td1.numFields()+td2.numFields()];
+        String []fieldAr=new String[td1.numFields()+td2.numFields()];
+        //遍历td1，td2，填充两个数组
+        for(int i=0;i<td1.numFields();i++) {
+        	typeAr[i]=td1.tdItems[i].fieldType;
+        	fieldAr[i]=td1.tdItems[i].fieldName;
+        }
+        for(int i=0;i<td2.numFields();i++) {
+        	typeAr[i+td1.numFields()]=td2.tdItems[i].fieldType;
+        	fieldAr[i+td1.numFields()]=td2.tdItems[i].fieldName;
+        }
+        //返回一个新构造的对象
+        return new TupleDesc(typeAr,fieldAr);
     }
 
     /**
@@ -162,6 +201,16 @@ public class TupleDesc implements Serializable {
 
     public boolean equals(Object o) {
         // some code goes here
+        if(o instanceof TupleDesc) {
+        	TupleDesc temp=(TupleDesc)o;
+        	if(this.numFields()==temp.numFields()) {
+        		for(int i=0;i<numFields();i++) {//比较两个对象数组中每个元素的type
+        			if(!this.tdItems[i].fieldType.equals(temp.tdItems[i].fieldType))
+        				return false;
+        		}
+        		return true;
+        	}
+        }
         return false;
     }
 
@@ -179,7 +228,10 @@ public class TupleDesc implements Serializable {
      * @return String describing this descriptor.
      */
     public String toString() {
-        // some code goes here
-        return "";
+        StringBuilder temp=new StringBuilder();
+        for(int i=0;i<tdItems.length-1;i++)
+        	temp.append(tdItems[i].fieldType+"("+tdItems[i].fieldName+"),");
+        temp.append(tdItems[tdItems.length-1].fieldType+"("+tdItems[tdItems.length-1].fieldName+")");//最后一项后面没有逗号
+        return temp.toString();
     }
 }

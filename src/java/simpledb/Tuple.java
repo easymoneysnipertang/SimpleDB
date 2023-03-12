@@ -13,6 +13,9 @@ public class Tuple implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    private TupleDesc tupleDesc;
+    private Field[] fields;
+    
     /**
      * Create a new tuple with the specified schema (type).
      *
@@ -22,6 +25,8 @@ public class Tuple implements Serializable {
      */
     public Tuple(TupleDesc td) {
         // some code goes here
+    	tupleDesc=td;
+    	fields=new Field[td.numFields()];
     }
 
     /**
@@ -29,7 +34,7 @@ public class Tuple implements Serializable {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        return tupleDesc;
     }
 
     /**
@@ -61,6 +66,7 @@ public class Tuple implements Serializable {
      */
     public void setField(int i, Field f) {
         // some code goes here
+    	if(i>=0&&i<tupleDesc.numFields())fields[i]=f;
     }
 
     /**
@@ -71,7 +77,8 @@ public class Tuple implements Serializable {
      */
     public Field getField(int i) {
         // some code goes here
-        return null;
+    	if(i>=0&&i<tupleDesc.numFields())return fields[i];
+    	return null;
     }
 
     /**
@@ -84,7 +91,11 @@ public class Tuple implements Serializable {
      */
     public String toString() {
         // some code goes here
-        throw new UnsupportedOperationException("Implement this");
+        StringBuilder temp=new StringBuilder();
+        for(int i=0;i<fields.length-1;i++)
+        	temp.append(fields[i]+"\t");
+        temp.append(fields[fields.length-1].toString());
+        return temp.toString();
     }
 
     /**
@@ -94,7 +105,7 @@ public class Tuple implements Serializable {
     public Iterator<Field> fields()
     {
         // some code goes here
-        return null;
+        return (Iterator<Field>)Arrays.stream(fields).iterator();
     }
 
     /**
@@ -103,5 +114,6 @@ public class Tuple implements Serializable {
     public void resetTupleDesc(TupleDesc td)
     {
         // some code goes here
+    	tupleDesc=td;
     }
 }
