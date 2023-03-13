@@ -13,6 +13,16 @@ import java.util.*;
  * @see simpledb.HeapPage#HeapPage
  * @author Sam Madden
  */
+
+/**
+ * 每个table对应一个HeapFile
+ * HeapFile由一系列page组成，每个page又是固定量的tuple
+ * 每个page是由一些列的slots组成，每个slot对应一个tuple
+ * page都是HeapPage
+ * 每个page都有一个header，header记录tuple是否有效 bits
+ * 
+ * @author 唐同学
+ */
 public class HeapFile implements DbFile {
 
     /**

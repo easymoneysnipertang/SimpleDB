@@ -1,7 +1,7 @@
 package simpledb;
 
 import java.io.*;
-
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -15,6 +15,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * 
  * @Threadsafe, all fields are final
  */
+
+/**
+ * 一个table由多个page组成，
+ * 每个page存储其中的一部分数据。
+ * 当我们需要查询table中的数据时，
+ * 数据库会在所有的page中查找符合条件的数据。
+ * 
+ * @author 唐同学
+ */
 public class BufferPool {
     /** Bytes per page, including header. */
     private static final int DEFAULT_PAGE_SIZE = 4096;
@@ -25,6 +34,8 @@ public class BufferPool {
     other classes. BufferPool should use the numPages argument to the
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
+    private final int numPages;
+    private HashMap<Integer,Page> pages;//存放bufferPool中的page，key用pageId的hashCode()
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -33,6 +44,8 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
+    	this.numPages=numPages;
+    	pages=new HashMap<Integer,Page>();
     }
     
     public static int getPageSize() {
@@ -67,7 +80,18 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+    	
+    	//page有自己独有的id(hashCode),page所属的table也有id(getTableId)
+    	if(!pages.containsKey(pid.hashCode())) {//查询的page不在bufferPool中
+    		//从文件中读取page，用dbFile
+    		//读取文件，catalog.getDatabaseFile()
+    		DbFile temp=Database.getCatalog().getDatabaseFile(pid.getTableId());
+    		Page page=temp.readPage(pid);
+    		
+    		//读入bufferPool
+    		pages.put(pid.hashCode(), page);
+    	}
+        return pages.get(pid.hashCode());//lock? insufficient? not necessary for lab1?
     }
 
     /**

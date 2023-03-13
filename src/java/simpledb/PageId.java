@@ -12,7 +12,7 @@ public interface PageId {
     public int[] serialize();
 
     /** @return the unique tableid hashcode with this PageId */
-    public int getTableId();
+    public int getTableId();//tableId!page所属的table！
 
     /**
      * @return a hash code for this page, represented by the concatenation of
@@ -20,7 +20,7 @@ public interface PageId {
      *   key in a hash table in the BufferPool, for example.)
      * @see BufferPool
      */
-    public int hashCode();
+    public int hashCode();//在bufferPool中作为key
 
     /**
      * Compares one PageId to another.

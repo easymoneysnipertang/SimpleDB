@@ -16,6 +16,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * 
  * @Threadsafe
  */
+
+/**
+ * catalog保存所有种类的table，每个table对应一个DbFile
+ */
+
 public class Catalog {
 
 	public static class Table{//Table类，对应一个DbFile

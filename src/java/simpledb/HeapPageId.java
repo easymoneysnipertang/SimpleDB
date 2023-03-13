@@ -1,8 +1,13 @@
 package simpledb;
 
+import java.util.Objects;
+
 /** Unique identifier for HeapPage objects. */
 public class HeapPageId implements PageId {
 
+	private int tableId;//page所属的table
+	private int pgNo;//在table中的哪页
+	
     /**
      * Constructor. Create a page id structure for a specific page of a
      * specific table.
@@ -12,12 +17,14 @@ public class HeapPageId implements PageId {
      */
     public HeapPageId(int tableId, int pgNo) {
         // some code goes here
+    	this.tableId=tableId;
+    	this.pgNo=pgNo;
     }
 
     /** @return the table associated with this PageId */
     public int getTableId() {
         // some code goes here
-        return 0;
+        return tableId;
     }
 
     /**
@@ -26,7 +33,7 @@ public class HeapPageId implements PageId {
      */
     public int getPageNumber() {
         // some code goes here
-        return 0;
+        return pgNo;
     }
 
     /**
@@ -37,7 +44,7 @@ public class HeapPageId implements PageId {
      */
     public int hashCode() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+    	return Objects.hash(pgNo,tableId);//直接用eclipse写override
     }
 
     /**
@@ -48,8 +55,14 @@ public class HeapPageId implements PageId {
      *   ids are the same)
      */
     public boolean equals(Object o) {
-        // some code goes here
-        return false;
+        if(this==o)
+        	return true;
+        if(o==null)
+        	return false;
+        if(getClass()!=o.getClass())
+        	return false;
+        HeapPageId temp=(HeapPageId)o;
+        return pgNo==temp.pgNo&&tableId==temp.tableId;
     }
 
     /**
