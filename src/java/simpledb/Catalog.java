@@ -18,12 +18,31 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Catalog {
 
+	public static class Table{//Table类，对应一个DbFile
+		//照着addTable构造
+		public DbFile dbFile;
+		public String name;
+		public String pkeyField;
+		
+		public Table(DbFile dbFile, String name, String pkeyField) {
+			super();
+			this.dbFile = dbFile;
+			this.name = name;
+			this.pkeyField = pkeyField;
+		}
+		
+	}
+	
+	//用map存放catalog里所有table
+	private HashMap<Integer,Table> tables;//每个DbFile都有一个单独的id
+	
     /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
         // some code goes here
+    	tables=new HashMap();
     }
 
     /**
@@ -37,6 +56,13 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
+    	Table temp=new Table(file,name,pkeyField);
+    	//得判断名字冲突
+    	 for(int key:tables.keySet()) {
+         	if(tables.get(key).name.equals(name))
+         		tables.get(key).name="";
+         }
+    	tables.put(file.getId(), temp);
     }
 
     public void addTable(DbFile file, String name) {
@@ -60,7 +86,12 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        for(int key:tables.keySet()) {
+        	if(tables.get(key).name.equals(name))
+        		return key;
+        }
+        throw new NoSuchElementException("not found");
+//        return (Integer) null;
     }
 
     /**
@@ -71,7 +102,7 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        return tables.get(tableid).dbFile.getTupleDesc();
     }
 
     /**
@@ -82,27 +113,28 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        return tables.get(tableid).dbFile;
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        return null;
+        return tables.get(tableid).pkeyField;
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
+        return tables.keySet().iterator();
     }
 
     public String getTableName(int id) {
         // some code goes here
-        return null;
+        return tables.get(id).name;
     }
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
+    	tables.clear();
     }
     
     /**
@@ -111,23 +143,23 @@ public class Catalog {
      */
     public void loadSchema(String catalogFile) {
         String line = "";
-        String baseFolder=new File(new File(catalogFile).getAbsolutePath()).getParent();
+        String baseFolder=new File(new File(catalogFile).getAbsolutePath()).getParent();//基文件夹
         try {
             BufferedReader br = new BufferedReader(new FileReader(new File(catalogFile)));
             
-            while ((line = br.readLine()) != null) {
+            while ((line = br.readLine()) != null) {//读入schema
                 //assume line is of the format name (field type, field type, ...)
                 String name = line.substring(0, line.indexOf("(")).trim();
                 //System.out.println("TABLE NAME: " + name);
-                String fields = line.substring(line.indexOf("(") + 1, line.indexOf(")")).trim();
-                String[] els = fields.split(",");
+                String fields = line.substring(line.indexOf("(") + 1, line.indexOf(")")).trim();//截取字段
+                String[] els = fields.split(",");//切分为field type
                 ArrayList<String> names = new ArrayList<String>();
                 ArrayList<Type> types = new ArrayList<Type>();
                 String primaryKey = "";
                 for (String e : els) {
-                    String[] els2 = e.trim().split(" ");
+                    String[] els2 = e.trim().split(" ");//再切
                     names.add(els2[0].trim());
-                    if (els2[1].trim().toLowerCase().equals("int"))
+                    if (els2[1].trim().toLowerCase().equals("int"))//判断type
                         types.add(Type.INT_TYPE);
                     else if (els2[1].trim().toLowerCase().equals("string"))
                         types.add(Type.STRING_TYPE);
@@ -135,7 +167,7 @@ public class Catalog {
                         System.out.println("Unknown type " + els2[1]);
                         System.exit(0);
                     }
-                    if (els2.length == 3) {
+                    if (els2.length == 3) {//还有一段，声明是主键
                         if (els2[2].trim().equals("pk"))
                             primaryKey = els2[0].trim();
                         else {
