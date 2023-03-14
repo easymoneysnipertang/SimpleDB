@@ -25,6 +25,9 @@ import java.util.*;
  */
 public class HeapFile implements DbFile {
 
+	private File table;
+	private TupleDesc tupleDesc;
+	
     /**
      * Constructs a heap file backed by the specified file.
      * 
@@ -34,6 +37,8 @@ public class HeapFile implements DbFile {
      */
     public HeapFile(File f, TupleDesc td) {
         // some code goes here
+    	this.table=f;
+    	this.tupleDesc=td;
     }
 
     /**
@@ -43,7 +48,7 @@ public class HeapFile implements DbFile {
      */
     public File getFile() {
         // some code goes here
-        return null;
+        return table;
     }
 
     /**
@@ -55,9 +60,9 @@ public class HeapFile implements DbFile {
      * 
      * @return an ID uniquely identifying this HeapFile.
      */
-    public int getId() {
+    public int getId() {//每个DbFile都有一个key->hashMap
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        return table.getAbsoluteFile().hashCode();//就是page的tableId!
     }
 
     /**
@@ -67,13 +72,35 @@ public class HeapFile implements DbFile {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        return tupleDesc;
     }
 
     // see DbFile.java for javadocs
     public Page readPage(PageId pid) {
         // some code goes here
-        return null;
+        //构造一个page需要pageId和data[]
+    	byte []data=new byte[BufferPool.getPageSize()];
+    	int tableId=pid.getTableId();
+    	int pageNo=pid.getPageNumber();
+    	HeapPageId hpid=new HeapPageId(tableId,pageNo);
+    	
+    	//page在文件中有偏移量 random access
+    	try {
+			RandomAccessFile raf=new RandomAccessFile(table,"r");
+			int offset=pageNo*BufferPool.getPageSize();//Number应该是从0开始？
+			int testRead=raf.read(data,offset,BufferPool.getPageSize());
+			
+			if(testRead!=BufferPool.getPageSize())//没读对
+				throw new IllegalArgumentException("page wrong!");
+			
+			raf.close();
+			return new HeapPage(hpid,data);
+			
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+    	throw new IllegalArgumentException("page does not exist in this file");
     }
 
     // see DbFile.java for javadocs
@@ -87,7 +114,7 @@ public class HeapFile implements DbFile {
      */
     public int numPages() {
         // some code goes here
-        return 0;
+        return (int) Math.floor((double)table.length()/BufferPool.getPageSize());
     }
 
     // see DbFile.java for javadocs
@@ -108,8 +135,84 @@ public class HeapFile implements DbFile {
 
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
+    	//iterate through through the tuples of each page in the HeapFile
+    	//Do not load the entire table into memory
+    	//用BufferPool.getPage()去获取pages
+    	
+    	//auxiliary class:(
+    	
         // some code goes here
-        return null;
+        return new HeapFileIterator(tid,this);
+    }
+    
+    private class HeapFileIterator implements DbFileIterator{
+    	//在一个文件里，一次读取一页，一页里面用Iterator<Tuple>，每次是返回一个tuple
+    	private int cursor;
+    	private TransactionId tid;
+    	private HeapFile file;
+    	private Iterator<Tuple> it;
+    	
+    	
+		public HeapFileIterator(TransactionId tid, HeapFile file) {
+			super();
+			this.tid = tid;
+			this.file = file;
+		}
+
+		@Override
+		public void open() throws DbException, TransactionAbortedException {
+			// TODO Auto-generated method stub
+			cursor=0;
+			HeapPageId temp=new HeapPageId(file.getId(),cursor);//tableId有，pageNo有
+			it=((HeapPage)Database.getBufferPool().getPage(tid, temp, Permissions.READ_ONLY)).iterator();
+		}
+
+		@Override
+		public boolean hasNext() throws DbException, TransactionAbortedException {
+			// TODO Auto-generated method stub
+			if(it==null)
+				return false;//没有open
+			if(!it.hasNext()) {//这一页的tuple已经访问完了
+				if(cursor+1>=file.numPages())
+					return false;
+				else {
+					cursor++;//下一页
+					HeapPageId temp=new HeapPageId(file.getId(),cursor);
+					it=((HeapPage)Database.getBufferPool().getPage(tid, temp, Permissions.READ_ONLY)).iterator();
+					return true;
+				}
+			}
+			else 
+				return true;
+		}
+
+		@Override
+		public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
+			// TODO Auto-generated method stub
+			if(hasNext()) {
+				return it.next();
+			}
+			throw new NoSuchElementException("no");//test中catch的是这个
+			
+		}
+
+		@Override
+		public void rewind() throws DbException, TransactionAbortedException {
+			//Resets the iterator to the start.
+			// TODO Auto-generated method stub
+			cursor=0;
+			HeapPageId temp=new HeapPageId(file.getId(),cursor);
+			it=((HeapPage)Database.getBufferPool().getPage(tid, temp, Permissions.READ_ONLY)).iterator();
+			
+		}
+
+		@Override
+		public void close() {
+			// TODO Auto-generated method stub
+			cursor=0;
+			it=null;
+		}
+    	
     }
 
 }
