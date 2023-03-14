@@ -29,6 +29,7 @@ public class HeapFileEncoder {
    * @throws IOException if the temporary/output file can't be opened
    */
   public static void convert(ArrayList<ArrayList<Integer>> tuples, File outFile, int npagebytes, int numFields) throws IOException {
+	  //把tuple list写入page，tuple的每个字段都是integer
       File tempInput = File.createTempFile("tempTable", ".txt");
       tempInput.deleteOnExit();
       BufferedWriter bw = new BufferedWriter(new FileWriter(tempInput));
@@ -48,7 +49,7 @@ public class HeapFileEncoder {
           bw.write('\n');
       }
       bw.close();
-      convert(tempInput, outFile, npagebytes, numFields);
+      convert(tempInput, outFile, npagebytes, numFields);//tuples都写到了temp里，再转到二进制outFile里
   }
 
       public static void convert(File inFile, File outFile, int npagebytes,
@@ -57,13 +58,13 @@ public class HeapFileEncoder {
       for (int i = 0; i < ts.length; i++) {
           ts[i] = Type.INT_TYPE;
       }
-      convert(inFile,outFile,npagebytes,numFields,ts);
+      convert(inFile,outFile,npagebytes,numFields,ts);//给出typeDesc
       }
 
   public static void convert(File inFile, File outFile, int npagebytes,
                  int numFields, Type[] typeAr)
       throws IOException {
-      convert(inFile,outFile,npagebytes,numFields,typeAr,',');
+      convert(inFile,outFile,npagebytes,numFields,typeAr,',');//,做分隔符
   }
 
    /** Convert the specified input text file into a binary
@@ -95,6 +96,7 @@ public class HeapFileEncoder {
       for (int i = 0; i < numFields ; i++) {
           nrecbytes += typeAr[i].getLen();
       }
+      //一页的tuple数
       int nrecords = (npagebytes * 8) /  (nrecbytes * 8 + 1);  //floor comes for free
       
     //  per record, we need one bit; there are nrecords per page, so we need

@@ -15,6 +15,7 @@ public class Tuple implements Serializable {
 
     private TupleDesc tupleDesc;
     private Field[] fields;
+    private RecordId recordId;//不一定非得在构造函数中初始化，没给咋初始化嘛
     
     /**
      * Create a new tuple with the specified schema (type).
@@ -43,7 +44,7 @@ public class Tuple implements Serializable {
      */
     public RecordId getRecordId() {
         // some code goes here
-        return null;
+        return recordId;
     }
 
     /**
@@ -54,6 +55,7 @@ public class Tuple implements Serializable {
      */
     public void setRecordId(RecordId rid) {
         // some code goes here
+    	recordId=rid;
     }
 
     /**

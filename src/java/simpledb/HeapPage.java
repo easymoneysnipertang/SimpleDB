@@ -17,9 +17,9 @@ public class HeapPage implements Page {
     final TupleDesc td;
     final byte header[];
     final Tuple tuples[];
-    final int numSlots;
+    final int numSlots;//一个slot对应一个tuple
 
-    byte[] oldData;
+    byte[] oldData;//保存page之前的样子
     private final Byte oldDataLock=new Byte((byte)0);
 
     /**
@@ -66,8 +66,8 @@ public class HeapPage implements Page {
         @return the number of tuples on this page
     */
     private int getNumTuples() {        
-        // some code goes here
-        return 0;
+		// some code goes here
+        return (int) Math.floor(((double)BufferPool.getPageSize()*8)/(td.getSize()*8+1));
 
     }
 
@@ -76,9 +76,8 @@ public class HeapPage implements Page {
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
     private int getHeaderSize() {        
-        
         // some code goes here
-        return 0;
+        return (int) Math.ceil((double)numSlots/8);
                  
     }
     
@@ -87,11 +86,11 @@ public class HeapPage implements Page {
     public HeapPage getBeforeImage(){
         try {
             byte[] oldDataRef = null;
-            synchronized(oldDataLock)
+            synchronized(oldDataLock)//锁，避免冲突
             {
                 oldDataRef = oldData;
             }
-            return new HeapPage(pid,oldDataRef);
+            return new HeapPage(pid,oldDataRef);//new一个对象
         } catch (IOException e) {
             e.printStackTrace();
             //should never happen -- we parsed it OK before!
@@ -112,7 +111,7 @@ public class HeapPage implements Page {
      */
     public HeapPageId getId() {
     // some code goes here
-    throw new UnsupportedOperationException("implement this");
+    	return pid;
     }
 
     /**
@@ -121,6 +120,8 @@ public class HeapPage implements Page {
     private Tuple readNextTuple(DataInputStream dis, int slotId) throws NoSuchElementException {
         // if associated bit is not set, read forward to the next tuple, and
         // return null.
+    	
+    	//slotId,tuple在page中的number
         if (!isSlotUsed(slotId)) {
             for (int i=0; i<td.getSize(); i++) {
                 try {
@@ -133,6 +134,7 @@ public class HeapPage implements Page {
         }
 
         // read fields in the tuple
+        //实例化tuple，一点点读取field到tuple中
         Tuple t = new Tuple(td);
         RecordId rid = new RecordId(pid, slotId);
         t.setRecordId(rid);
@@ -182,7 +184,7 @@ public class HeapPage implements Page {
             if (!isSlotUsed(i)) {
                 for (int j=0; j<td.getSize(); j++) {
                     try {
-                        dos.writeByte(0);
+                        dos.writeByte(0);//写入td的size个0
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -195,7 +197,7 @@ public class HeapPage implements Page {
             for (int j=0; j<td.numFields(); j++) {
                 Field f = tuples[i].getField(j);
                 try {
-                    f.serialize(dos);
+                    f.serialize(dos);//写每一个字段
                 
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -282,15 +284,24 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+    	int count=0;
+    	for(int i=0;i<numSlots;i++)
+    		if(!isSlotUsed(i))count++;
+        return count;
     }
 
     /**
      * Returns true if associated slot on this page is filled.
      */
-    public boolean isSlotUsed(int i) {
+    public boolean isSlotUsed(int i) {//应该找到bit上去
         // some code goes here
-        return false;
+    	//大端序，1个byte里8个bit按大端序存
+    	//首先要确定在第几个byte
+    	int positionOfByte=i/8;
+    	//再确定在第几个bit
+    	int positionOfBit=i%8;
+    	//大端序
+        return 1==((header[positionOfByte]>>positionOfBit)&0x1);
     }
 
     /**
@@ -307,7 +318,11 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+    	ArrayList<Tuple> temp=new ArrayList<Tuple>();
+    	for(int i=0;i<numSlots;i++) {
+    		if(isSlotUsed(i))temp.add(tuples[i]);//空的slot不加入
+    	}
+        return temp.iterator();
     }
 
 }
