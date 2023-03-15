@@ -87,8 +87,13 @@ public class HeapFile implements DbFile {
     	//page在文件中有偏移量 random access
     	try {
 			RandomAccessFile raf=new RandomAccessFile(table,"r");
+			//做exercise6出现IndexOutOfBoudsException?
+			//read函数偏移量是byte数组的偏移量！！前面初始化为空
+			//不是数据流的偏移量，数据流得用seek！
+			
 			int offset=pageNo*BufferPool.getPageSize();//Number应该是从0开始？
-			int testRead=raf.read(data,offset,BufferPool.getPageSize());
+			raf.seek(offset);
+			int testRead=raf.read(data,0,BufferPool.getPageSize());
 			
 			if(testRead!=BufferPool.getPageSize())//没读对
 				throw new IllegalArgumentException("page wrong!");

@@ -4,6 +4,8 @@ import java.util.*;
 /**
  * DbFileIterator is the iterator interface that all SimpleDB Dbfile should
  * implement.
+ * 每个Dbfile从底层去实现DbFileIterator
+ * 上层只需要用，访问到底层的时候file自己实现
  */
 public interface DbFileIterator{
     /**
