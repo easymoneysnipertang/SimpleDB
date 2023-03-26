@@ -8,6 +8,11 @@ import java.util.*;
 public class Join extends Operator {
 
     private static final long serialVersionUID = 1L;
+    
+    private JoinPredicate p;
+    private OpIterator child1;
+    private OpIterator child2;
+    private Tuple current;
 
     /**
      * Constructor. Accepts two children to join and the predicate to join them
@@ -22,11 +27,15 @@ public class Join extends Operator {
      */
     public Join(JoinPredicate p, OpIterator child1, OpIterator child2) {
         // some code goes here
+    	this.p=p;
+    	this.child1=child1;
+    	this.child2=child2;
+    	current=null;
     }
 
     public JoinPredicate getJoinPredicate() {
         // some code goes here
-        return null;
+        return p;
     }
 
     /**
@@ -36,7 +45,8 @@ public class Join extends Operator {
      * */
     public String getJoinField1Name() {
         // some code goes here
-        return null;
+    	// 获取第一个字段的名字->tupleDesc
+        return child1.getTupleDesc().getFieldName(p.getField1());
     }
 
     /**
@@ -46,7 +56,7 @@ public class Join extends Operator {
      * */
     public String getJoinField2Name() {
         // some code goes here
-        return null;
+        return child2.getTupleDesc().getFieldName(p.getField2());
     }
 
     /**
@@ -54,21 +64,29 @@ public class Join extends Operator {
      *      implementation logic.
      */
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+		// some code goes here
+        return TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
+    	child1.open();
+    	child2.open();
+    	super.open();
     }
 
     public void close() {
         // some code goes here
+    	super.close();
+    	child1.close();
+    	child2.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
+    	child1.rewind();
+    	child2.rewind();
     }
 
     /**
@@ -76,12 +94,14 @@ public class Join extends Operator {
      * more tuples. Logically, this is the next tuple in r1 cross r2 that
      * satisfies the join predicate. There are many possible implementations;
      * the simplest is a nested loops join.
+     * 考虑循环嵌套实现
      * <p>
      * Note that the tuples returned from this particular implementation of Join
      * are simply the concatenation of joining tuples from the left and right
      * relation. Therefore, if an equality predicate is used there will be two
      * copies of the join attribute in the results. (Removing such duplicate
      * columns can be done with an additional projection operator if needed.)
+     * 如果有必要，删除重复列
      * <p>
      * For example, if one tuple is {1,2,3} and the other tuple is {1,5,6},
      * joined on equality of the first column, then this returns {1,2,3,1,5,6}.
@@ -91,18 +111,53 @@ public class Join extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
+    	// gtJoin会报错？->child1每次都在动，可能当前tuple正合适，还可以与child2中进行连接,而next直接将他移过了
+    	while(child1.hasNext()||current!=null) {// 即使child1没有next，但current中保存有值
+    		if(child1.hasNext()&&current==null){// 如果current没有值child1才执行next
+    			current=child1.next();
+    		}
+    		
+    		// 循环嵌套，child1中一个tuple遍历child2中所有
+    		while(child2.hasNext()) {
+    			Tuple temp2=child2.next();
+    			if(p.filter(current, temp2)) {// 二者合适
+    				// 构造一个新的tuple
+    				TupleDesc newTd=getTupleDesc();
+    				Tuple result=new Tuple(newTd);
+    				
+    				// 给Tuple的每个字段设置值
+    				result.setRecordId(current.getRecordId());
+    				for(int i=0;i<child1.getTupleDesc().numFields();i++)
+    					result.setField(i, current.getField(i));
+    				for(int j=0;j<child2.getTupleDesc().numFields();j++)
+    					result.setField(j+child1.getTupleDesc().numFields(), temp2.getField(j));
+    				
+    				if(!child2.hasNext()) {//child2走到头刚好找到，得重置，否则下次直接不进入循环
+    					child2.rewind();
+    					current=null;
+    				}
+    				return result;
+    			}
+    		}
+    		// 重置
+    		child2.rewind();
+    		current=null;
+    	}
         return null;
     }
 
     @Override
     public OpIterator[] getChildren() {
         // some code goes here
-        return null;
+    	// If the operator is a join, children[0] and children[1] should be used.
+        return new OpIterator[] {child1,child2};
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
         // some code goes here
+    	child1=children[0];
+    	child2=children[1];
     }
 
 }

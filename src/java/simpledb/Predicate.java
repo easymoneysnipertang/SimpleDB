@@ -4,6 +4,7 @@ import java.io.Serializable;
 
 /**
  * Predicate compares tuples to a specified Field value.
+ * 谓词，用于作比较
  */
 public class Predicate implements Serializable {
 
@@ -44,6 +45,10 @@ public class Predicate implements Serializable {
 
     }
     
+    private int numOfField;//在tuple中的位置
+    private Op opForCom;//比较的符号
+    private Field operand;//要在tuple中进行比较的字段的值
+    
     /**
      * Constructor.
      * 
@@ -56,6 +61,9 @@ public class Predicate implements Serializable {
      */
     public Predicate(int field, Op op, Field operand) {
         // some code goes here
+    	this.numOfField=field;
+    	this.opForCom=op;
+    	this.operand=operand;
     }
 
     /**
@@ -64,7 +72,7 @@ public class Predicate implements Serializable {
     public int getField()
     {
         // some code goes here
-        return -1;
+        return numOfField;
     }
 
     /**
@@ -73,7 +81,7 @@ public class Predicate implements Serializable {
     public Op getOp()
     {
         // some code goes here
-        return null;
+        return opForCom;
     }
     
     /**
@@ -82,7 +90,7 @@ public class Predicate implements Serializable {
     public Field getOperand()
     {
         // some code goes here
-        return null;
+        return operand;
     }
     
     /**
@@ -97,7 +105,7 @@ public class Predicate implements Serializable {
      */
     public boolean filter(Tuple t) {
         // some code goes here
-        return false;
+        return t.getField(numOfField).compare(opForCom, operand);//用t去比较operand，交换会出错？可能number不对？
     }
 
     /**
@@ -106,6 +114,8 @@ public class Predicate implements Serializable {
      */
     public String toString() {
         // some code goes here
-        return "";
+    	
+    	String str="f = "+numOfField+" op = "+opForCom.toString()+" operand = "+operand.toString();
+        return str;
     }
 }

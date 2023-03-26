@@ -7,6 +7,9 @@ import java.util.NoSuchElementException;
  * <code>next</code> and <code>hasNext</code>. Subclasses only need to implement
  * <code>open</code> and <code>readNext</code>.
  */
+/**
+ *实现了OpIterator，其他类直接继承他，子类只用实现两个函数 
+ */
 public abstract class Operator implements OpIterator {
 
     private static final long serialVersionUID = 1L;

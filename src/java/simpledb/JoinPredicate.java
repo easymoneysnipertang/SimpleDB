@@ -5,11 +5,16 @@ import java.io.Serializable;
 /**
  * JoinPredicate compares fields of two tuples using a predicate. JoinPredicate
  * is most likely used by the Join operator.
+ * 比较两个tuple的字段
  */
 public class JoinPredicate implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    private int numOfField1;
+    private int numOfField2;
+    private Predicate.Op op;
+    
     /**
      * Constructor -- create a new predicate over two fields of two tuples.
      * 
@@ -26,6 +31,9 @@ public class JoinPredicate implements Serializable {
      */
     public JoinPredicate(int field1, Predicate.Op op, int field2) {
         // some code goes here
+    	this.numOfField1=field1;
+    	this.numOfField2=field2;
+    	this.op=op;
     }
 
     /**
@@ -36,24 +44,24 @@ public class JoinPredicate implements Serializable {
      */
     public boolean filter(Tuple t1, Tuple t2) {
         // some code goes here
-        return false;
+        return t1.getField(numOfField1).compare(op, t2.getField(numOfField2));
     }
     
     public int getField1()
     {
         // some code goes here
-        return -1;
+        return numOfField1;
     }
     
     public int getField2()
     {
         // some code goes here
-        return -1;
+        return numOfField2;
     }
     
     public Predicate.Op getOperator()
     {
         // some code goes here
-        return null;
+        return op;
     }
 }

@@ -296,7 +296,7 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {//应该找到bit上去
         // some code goes here
-    	//大端序，1个byte里8个bit按大端序存
+    	//大端序
     	//首先要确定在第几个byte
     	int positionOfByte=i/8;
     	//再确定在第几个bit
