@@ -1,7 +1,9 @@
 package simpledb;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
@@ -28,7 +30,7 @@ public class IntegerAggregator implements Aggregator {
 //    private HashMap<Integer,Integer> avgCount=new HashMap<>();// 为了求平均值，记录每个组有多少元素
     
     private HashMap<Field,Integer> group=new HashMap<>();
-    private HashMap<Field,Integer> avgCount=new HashMap<>();
+    private HashMap<Field,ArrayList<Integer>> avgCount=new HashMap<>();// 必须得用list去记录每一个值，不然在四舍五入过程中会造成结果错误
     
     /**
      * Aggregate constructor
@@ -105,13 +107,19 @@ public class IntegerAggregator implements Aggregator {
     	case AVG:
     		if(!group.containsKey(gb)) {
     			group.put(gb, aValue);
-    			avgCount.put(gb, 1);// 用来记录该组有多少个值
+    			// 新建一个数组
+    			ArrayList<Integer> newGroup = new ArrayList();
+    			newGroup.add(aValue);
+    			avgCount.put(gb, newGroup);// 用来记录该组的值
     		}
     		else
     		{
-    			int temp=avgCount.get(gb);
-    			avgCount.put(gb, temp+1);
-    			int avg=(temp*group.get(gb)+aValue)/(temp+1);// 求平均值
+    			ArrayList <Integer> get=avgCount.get(gb);
+    			get.add(aValue);// 加入新的一行
+    			avgCount.put(gb, get);
+    			
+    			int sum = get.stream().reduce(Integer::sum).orElse(0);// 求和
+    			int avg=sum/get.size();// 求平均值
     			group.put(gb, avg);
     		}
     		break;
