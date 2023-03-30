@@ -123,6 +123,8 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
+    // This method will acquire a lock on the affected pages of the file, and may block until the lock can be acquired.
+    // @return An ArrayList contain the pages that were modified
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here

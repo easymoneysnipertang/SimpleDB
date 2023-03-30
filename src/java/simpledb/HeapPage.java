@@ -21,6 +21,10 @@ public class HeapPage implements Page {
 
     byte[] oldData;//保存page之前的样子
     private final Byte oldDataLock=new Byte((byte)0);
+    
+    // 记录该页是否已经脏掉，被谁弄脏
+    private boolean isDirty;
+    private TransactionId whoMade;
 
     /**
      * Create a HeapPage from a set of bytes of data read from disk.
@@ -248,6 +252,16 @@ public class HeapPage implements Page {
     public void deleteTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+    	int tupleNo=t.getRecordId().getTupleNumber();
+    	// not on this page or already empty
+    	if(tuples[tupleNo]==null||!t.equals(tuples[tupleNo])||!isSlotUsed(tupleNo)) {
+    		throw new DbException("delete tuple wrong");
+    	}
+    	else
+    	{
+    		tuples[tupleNo]=null;
+    		markSlotUsed(tupleNo,false);// 删除，该slot就没被占用
+    	}
     }
 
     /**
@@ -260,6 +274,21 @@ public class HeapPage implements Page {
     public void insertTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+    	// page is full or tupleDesc mismatch
+    	if(getNumEmptySlots()==0||!t.getTupleDesc().equals(td)) {
+    		throw new DbException("insert tuple wrong");
+    	}
+    	// 寻找一个空位插入
+    	for(int i=0;i<numSlots;i++) {
+    		if(!isSlotUsed(i)) {
+    			// tuple得设置recordId
+    			RecordId temp=new RecordId(pid,i);
+    			t.setRecordId(temp);
+    			tuples[i]=t;
+    			markSlotUsed(i,true);// slot被占用
+    			break;
+    		}
+    	}
     }
 
     /**
@@ -269,6 +298,8 @@ public class HeapPage implements Page {
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
 	// not necessary for lab1
+    	this.isDirty=dirty;
+    	this.whoMade=tid;
     }
 
     /**
@@ -277,7 +308,8 @@ public class HeapPage implements Page {
     public TransactionId isDirty() {
         // some code goes here
 	// Not necessary for lab1
-        return null;      
+        if(isDirty)return whoMade;
+        else return null;
     }
 
     /**
@@ -311,6 +343,16 @@ public class HeapPage implements Page {
     private void markSlotUsed(int i, boolean value) {
         // some code goes here
         // not necessary for lab1
+    	//首先要确定在第几个byte
+    	int positionOfByte=i/8;
+    	//再确定在第几个bit
+    	int positionOfBit=i%8;
+    	if(value) {// 为真，已使用，置1
+    		header[positionOfByte]=(byte)(header[positionOfByte]|(0x1<<positionOfBit));
+    	}
+    	else {//置0
+    		header[positionOfByte]=(byte)(header[positionOfByte]&(~(0x1<<positionOfBit)));
+    	}
     }
 
     /**
