@@ -111,7 +111,20 @@ public class HeapFile implements DbFile {
     // see DbFile.java for javadocs
     public void writePage(Page page) throws IOException {
         // some code goes here
-        // not necessary for lab1
+    	// 获取pageNumber
+    	byte []data=new byte[BufferPool.getPageSize()];
+    	int pageNo=page.getId().getPageNumber();
+    	if(pageNo>numPages()) {
+    		throw new IllegalArgumentException("page wrong！");
+    	}
+    	// 写入file
+    	RandomAccessFile raf=new RandomAccessFile(table,"rw");
+    	int offset=pageNo*BufferPool.getPageSize();
+		raf.seek(offset);
+		
+		data=page.getPageData();
+    	raf.write(data);
+    	raf.close();
     }
 
     /**
@@ -123,21 +136,54 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
-    // This method will acquire a lock on the affected pages of the file, and may block until the lock can be acquired.
+    // This method will acquire a lock on the affected pages of the file, 
+    // and may block until the lock can be acquired.
     // @return An ArrayList contain the pages that were modified
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        return null;
-        // not necessary for lab1
+    	ArrayList<Page> ret=new ArrayList<Page>();
+        // 查看file里面所有的page,寻找一个合适的插入tuple
+    	for(int i=0;i<numPages();i++) {
+    		// 用bufferPool获取page
+    		// we should be able to add 504 tuples on an empty page. 报错↓
+    		//HeapPageId pid=(HeapPageId) t.getRecordId().getPageId();// tuple插入后才有recordId！recordId就是用来记录这个的！
+    		HeapPageId pid =new HeapPageId(this.getId(),i);
+    		HeapPage page=(HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+    		if(page.getNumEmptySlots()!=0){// 该页有空位可以插入
+    			page.insertTuple(t);
+    			ret.add(page);
+    			return ret;// 也别break了，直接return吧
+    		}
+    	}
+    	// 报错->the next 512 additions should live on a new page
+    	// 在file里追加一页
+    	RandomAccessFile raf=new RandomAccessFile(table,"rw");
+    	int offset=numPages()*BufferPool.getPageSize();// 从尾部追加
+		raf.seek(offset);
+		byte[] emptyPageData=HeapPage.createEmptyPageData();
+    	raf.write(emptyPageData);
+    	raf.close();
+    	// 拿出新的一页做插入
+    	HeapPageId pid=new HeapPageId(this.getId(),numPages()-1);
+    	HeapPage page=(HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+    	page.insertTuple(t);
+    	ret.add(page);
+    	
+    	return ret;
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        return null;
-        // not necessary for lab1
+    	ArrayList<Page> ret=new ArrayList<Page>();
+        // 从页中删除tuple
+    	HeapPageId pid=(HeapPageId) t.getRecordId().getPageId();//根据插入时的recordId做删除
+		HeapPage page=(HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+    	page.deleteTuple(t);
+    	ret.add(page);
+		return ret;
     }
 
     // see DbFile.java for javadocs

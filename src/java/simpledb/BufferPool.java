@@ -1,6 +1,7 @@
 package simpledb;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -156,7 +157,15 @@ public class BufferPool {
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        // not necessary for lab1
+        // 先获取HeapFile
+    	DbFile f=Database.getCatalog().getDatabaseFile(tableId);
+    	// 插入tuple
+    	ArrayList<Page> p=f.insertTuple(tid, t);
+    	// makeDirty
+    	for(Page page:p) {
+    		page.markDirty(true, tid);
+    		pages.put(page.getId().hashCode(), page);// update
+    	}
     }
 
     /**
@@ -175,7 +184,14 @@ public class BufferPool {
     public  void deleteTuple(TransactionId tid, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        // not necessary for lab1
+    	// 找到table
+        DbFile f=Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
+        // 报错-> delete 504 tuples from the first page-> 重写了tuple的equals函数
+        ArrayList<Page> p=f.deleteTuple(tid, t);
+        for(Page page:p) {
+        	page.markDirty(true, tid);
+        	pages.put(page.getId().hashCode(), page);
+        }
     }
 
     /**

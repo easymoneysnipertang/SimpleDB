@@ -254,8 +254,11 @@ public class HeapPage implements Page {
         // not necessary for lab1
     	int tupleNo=t.getRecordId().getTupleNumber();
     	// not on this page or already empty
-    	if(tuples[tupleNo]==null||!t.equals(tuples[tupleNo])||!isSlotUsed(tupleNo)) {
+    	if(tuples[tupleNo]==null||!isSlotUsed(tupleNo)) {
     		throw new DbException("delete tuple wrong");
+    	}
+    	if(!tuples[tupleNo].equals(t)) {// 重写了tuple的equal函数，否则会报错
+    		throw new DbException("tuple do not match");
     	}
     	else
     	{
