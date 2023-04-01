@@ -232,7 +232,7 @@ public class HeapFile implements DbFile {
 					cursor++;//下一页
 					HeapPageId temp=new HeapPageId(file.getId(),cursor);
 					it=((HeapPage)Database.getBufferPool().getPage(tid, temp, Permissions.READ_ONLY)).iterator();
-					return true;
+					return it.hasNext();// deleteTest的时候报错，NoSuchElement 找到这来，确实需要再判断新开的一页是否还有next
 				}
 			}
 			else 
