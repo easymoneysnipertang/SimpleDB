@@ -3,6 +3,7 @@ package simpledb;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -37,6 +38,7 @@ public class BufferPool {
     public static final int DEFAULT_PAGES = 50;
     private final int numPages;
     private HashMap<Integer,Page> pages;//存放bufferPool中的page，key用pageId的hashCode()
+    private LinkedList<PageId> pageOrder;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -47,6 +49,7 @@ public class BufferPool {
         // some code goes here
     	this.numPages=numPages;
     	pages=new HashMap<Integer,Page>();
+    	pageOrder=new LinkedList<PageId>();
     }
     
     public static int getPageSize() {
@@ -84,6 +87,9 @@ public class BufferPool {
     	
     	//page有自己独有的id(hashCode),page所属的table也有id(getTableId)
     	if(!pages.containsKey(pid.hashCode())) {//查询的page不在bufferPool中
+    		if(pages.size()>=numPages) {// insufficient space
+    			evictPage();
+    		}
     		//从文件中读取page，用dbFile
     		//读取文件，catalog.getDatabaseFile()
     		DbFile temp=Database.getCatalog().getDatabaseFile(pid.getTableId());
@@ -91,6 +97,7 @@ public class BufferPool {
     		
     		//读入bufferPool
     		pages.put(pid.hashCode(), page);
+    		pageOrder.add(pid);
     	}
         return pages.get(pid.hashCode());//lock? insufficient? not necessary for lab1?
     }
@@ -165,6 +172,9 @@ public class BufferPool {
     	for(Page page:p) {
     		page.markDirty(true, tid);
     		pages.put(page.getId().hashCode(), page);// update
+    		
+    		pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对他进行更新
+    		pageOrder.add(page.getId());
     	}
     }
 
@@ -191,6 +201,9 @@ public class BufferPool {
         for(Page page:p) {
         	page.markDirty(true, tid);
         	pages.put(page.getId().hashCode(), page);
+        	
+        	pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对他进行更新
+    		pageOrder.add(page.getId());
         }
     }
 
@@ -202,7 +215,9 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-
+    	for(Page p:pages.values()) {// 调用flushPage去做
+    		flushPage(p.getId());
+    	}
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -216,6 +231,8 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+    	pages.remove(pid.hashCode());
+    	pageOrder.remove(pid);
     }
 
     /**
@@ -225,6 +242,14 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+    	Page p=pages.get(pid.hashCode());
+    	// 判断该页是否为脏
+    	TransactionId tid=p.isDirty();
+    	if(tid!=null) {
+    		// 把该页写入磁盘->找到file
+    		Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(p);
+    		p.markDirty(false, null);// 标记为不再脏
+    	}
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -241,6 +266,15 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+    	// cache-> LRU原则
+    	PageId pid=pageOrder.getFirst();
+    	try {
+			flushPage(pid);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	discardPage(pid);
     }
 
 }

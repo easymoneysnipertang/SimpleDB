@@ -152,7 +152,7 @@ public class SeqScan implements OpIterator {
 
     public void close() {
         // some code goes here
-    	itrator.close();
+    	//itrator.close();// joinTest报错
     	itrator=null;
     	
     }
