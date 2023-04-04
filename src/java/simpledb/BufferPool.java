@@ -171,6 +171,12 @@ public class BufferPool {
     	// makeDirty
     	for(Page page:p) {
     		page.markDirty(true, tid);
+    		// 写报告时经提醒修改，插入删除要将它放入cache，需要判断空间
+    		// 那有意义吗？f里面调用getPage不是已经将他放进缓存了吗
+    		// 有可能并发处理？虽然它在缓存中，但过程中可能缓存又放入了page？
+    		if(pages.size()>=numPages) {// insufficient space
+    			evictPage();
+    		}
     		pages.put(page.getId().hashCode(), page);// update
     		
     		pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对他进行更新
@@ -200,9 +206,12 @@ public class BufferPool {
         ArrayList<Page> p=f.deleteTuple(tid, t);
         for(Page page:p) {
         	page.markDirty(true, tid);
+        	if(pages.size()>=numPages) {// insufficient space
+    			evictPage();
+    		}
         	pages.put(page.getId().hashCode(), page);
         	
-        	pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对他进行更新
+        	pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对它进行更新
     		pageOrder.add(page.getId());
         }
     }

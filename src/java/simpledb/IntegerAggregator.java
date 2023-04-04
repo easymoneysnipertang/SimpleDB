@@ -73,6 +73,8 @@ public class IntegerAggregator implements Aggregator {
     	else {
     		gb=tup.getField(this.gbField);
     		//gbValue=gbField.getValue();
+    		if(gbFieldType!=gb.getType())// 类型不符
+        		throw new IllegalArgumentException("wrong type!");
     	}
     	
     	IntField aField=(IntField) tup.getField(this.aField);

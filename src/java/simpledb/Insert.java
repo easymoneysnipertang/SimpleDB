@@ -56,14 +56,14 @@ public class Insert extends Operator {
     public void close() {
         // some code goes here
     	super.close();
-    	isCalled=false;
+    	//isCalled=false;// 你也别给我反复插了
     	child.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
     	child.rewind();
-    	isCalled=false;
+    	//isCalled=false;
     }
 
     /**

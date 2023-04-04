@@ -101,7 +101,7 @@ public class Join extends Operator {
      * relation. Therefore, if an equality predicate is used there will be two
      * copies of the join attribute in the results. (Removing such duplicate
      * columns can be done with an additional projection operator if needed.)
-     * 如果有必要，删除重复列
+     * 如果有必要，由其他的operator删除重复列
      * <p>
      * For example, if one tuple is {1,2,3} and the other tuple is {1,5,6},
      * joined on equality of the first column, then this returns {1,2,3,1,5,6}.

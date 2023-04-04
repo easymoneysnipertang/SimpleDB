@@ -19,7 +19,7 @@ public abstract class Operator implements OpIterator {
             throw new IllegalStateException("Operator not yet open");
         
         if (next == null)
-            next = fetchNext();
+            next = fetchNext();// 迭代器向下做了一下？没有问题吗
         return next != null;
     }
 
