@@ -208,7 +208,7 @@ public class BTreeFile implements DbFile {
 		
 		// iterate through the entries in the internal page and compare the entry value to the provided key value
 		Iterator<BTreeEntry> it=internalPage.iterator();
-		BTreeEntry temp = null;
+		BTreeEntry temp = null;// 遍历出一个entry
 		while(it.hasNext()) {// 遍历当前节点所有的entry寻找f
 			temp=it.next();
 			// recurse on the left-most child every time in order to find the left-most leaf page
@@ -246,7 +246,9 @@ public class BTreeFile implements DbFile {
 	 * of the first tuple in the right-hand page (the key is "copied up"), and child pointers 
 	 * pointing to the two leaf pages resulting from the split.  Update sibling pointers and parent 
 	 * pointers as needed.  
+	 * 往父节点传输entry，key是第一个右半节点的第一个tuple对应的field(copy up),需要更新叶节点的兄弟指针和父指针
 	 * 
+	 * 返回插入new tuple的page
 	 * Return the leaf page into which a new tuple with key field "field" should be inserted.
 	 * 
 	 * @param tid - the transaction id
@@ -264,14 +266,62 @@ public class BTreeFile implements DbFile {
 	protected BTreeLeafPage splitLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreeLeafPage page, Field field) 
 			throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
-        //
-        // Split the leaf page by adding a new page on the right of the existing
-		// page and moving half of the tuples to the new page.  Copy the middle key up
-		// into the parent page, and recursively split the parent as needed to accommodate
-		// the new entry.  getParentWithEmtpySlots() will be useful here.  Don't forget to update
-		// the sibling pointers of all the affected leaf pages.  Return the page into which a 
-		// tuple with the given key field should be inserted.
-        return null;
+		
+        // 1.Split the leaf page by adding a new page on the right of the existing
+		// page and moving half of the tuples to the new page. 
+		
+		// call getEmptyPage() to get the new page
+		BTreeLeafPage rightPage=(BTreeLeafPage)getEmptyPage(tid, dirtypages, BTreePageId.LEAF);
+		// moving a subset of tuples/entries from a page to its right sibling
+		int numberOfTuples=page.getNumTuples();
+		Iterator<Tuple> it=page.reverseIterator();
+		for(int i=0;i<numberOfTuples/2;i++) {
+			Tuple temp=it.next();
+			page.deleteTuple(temp);// 从原页面删除该tuple
+			rightPage.insertTuple(temp);// 放到右兄弟去
+		}
+		
+		// 2.Copy the middle key up into the parent page, 
+		// and recursively split the parent as needed to accommodate the new entry.  
+		// getParentWithEmtpySlots() will be useful here.  
+		
+		// interact with leaf and internal pages using .iterator() to iterate through the tuples/entries in each page!
+		Field midKey=rightPage.iterator().next().getField(keyField);
+		// 将key包装成一个向上传递的entry
+		BTreeEntry pushedUp=new BTreeEntry(midKey,page.getId(),rightPage.getId());
+		BTreeInternalPage parent=(BTreeInternalPage)getPage(tid,dirtypages,page.getParentId(),Permissions.READ_ONLY);
+		// 插入该entry
+		parent.insertEntry(pushedUp);
+		dirtypages.put(parent.getId(), parent);
+		// update the parent pointers of all the children that were moved->updateParentPointers()
+		updateParentPointers(tid,dirtypages,parent);
+		
+		
+		// 3.Don't forget to update the sibling pointers of all the affected leaf pages.
+		
+		// 原节点右节点指针更新
+		BTreePageId oldRightPageId=page.getRightSiblingId();
+		if(oldRightPageId!=null) {// 可能就已经是最右边了
+			// 更新左右指针
+			BTreeLeafPage oldRightPage=(BTreeLeafPage)getPage(tid,dirtypages,oldRightPageId,Permissions.READ_ONLY);
+			oldRightPage.setLeftSiblingId(rightPage.getId());
+			rightPage.setRightSiblingId(oldRightPageId);
+			// 放入缓存
+			dirtypages.put(oldRightPageId, oldRightPage);
+		}
+		// 分裂节点左右指针更新
+		page.setRightSiblingId(rightPage.getId());
+		rightPage.setLeftSiblingId(page.getId());
+		// 放入缓存
+		dirtypages.put(rightPage.getId(), rightPage);
+		dirtypages.put(page.getId(), page);
+		
+		// 4.Return the page into which a tuple with the given key field should be inserted.
+        // 看field是插入到哪一半
+		if(field.compare(Op.LESS_THAN, midKey))// 比midKey小，则插入到原来那一页中
+			return page;
+		else
+			return rightPage;
 		
 	}
 	
@@ -281,6 +331,7 @@ public class BTreeFile implements DbFile {
 	 * the middle key in the original internal page being split (this key is "pushed up" to the parent). 
 	 * The child pointers of the new parent entry should point to the two internal pages resulting 
 	 * from the split. Update parent pointers as needed.
+	 * 将新的entry push up！新entry的child pointers指向分裂的子节点
 	 * 
 	 * Return the internal page into which an entry with key field "field" should be inserted
 	 * 
@@ -301,14 +352,15 @@ public class BTreeFile implements DbFile {
 			BTreeInternalPage page, Field field) 
 					throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
-        //
+        
         // Split the internal page by adding a new page on the right of the existing
-		// page and moving half of the entries to the new page.  Push the middle key up
-		// into the parent page, and recursively split the parent as needed to accommodate
-		// the new entry.  getParentWithEmtpySlots() will be useful here.  Don't forget to update
-		// the parent pointers of all the children moving to the new page.  updateParentPointers()
-		// will be useful here.  Return the page into which an entry with the given key field
-		// should be inserted.
+		// page and moving half of the entries to the new page.  
+		// Push the middle key up into the parent page, 
+		// and recursively split the parent as needed to accommodate the new entry. 
+		// getParentWithEmtpySlots() will be useful here.  
+		// Don't forget to update the parent pointers of all the children moving to the new page. 
+		// updateParentPointers() will be useful here.  
+		// Return the page into which an entry with the given key field should be inserted.
 		return null;
 	}
 	
@@ -316,6 +368,7 @@ public class BTreeFile implements DbFile {
 	 * Method to encapsulate the process of getting a parent page ready to accept new entries.
 	 * This may mean creating a page to become the new root of the tree, splitting the existing 
 	 * parent page if there are no empty slots, or simply locking and returning the existing parent page.
+	 * 让父节点做好接受new entry的准备->new root/splitting/locking&returning
 	 *
 	 * @param tid - the transaction id
 	 * @param dirtypages - the list of dirty pages which should be updated with all new dirty pages
@@ -342,6 +395,7 @@ public class BTreeFile implements DbFile {
 			// update the root pointer
 			BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) getPage(tid, dirtypages,
 					BTreeRootPtrPage.getId(tableid), Permissions.READ_WRITE);
+			// 获取之前的根节点id，后面生成原根节点，并让他的父节点指向新根节点
 			BTreePageId prevRootId = rootPtr.getRootId(); //save prev id before overwriting.
 			rootPtr.setRootId(parent.getId());
 
@@ -377,7 +431,7 @@ public class BTreeFile implements DbFile {
 	 */
 	private void updateParentPointer(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, BTreePageId child) 
 			throws DbException, IOException, TransactionAbortedException {
-
+		// 将子节点的父指针指向当前节点
 		BTreePage p = (BTreePage) getPage(tid, dirtypages, child, Permissions.READ_ONLY);
 
 		if(!p.getParentId().equals(pid)) {
@@ -402,11 +456,11 @@ public class BTreeFile implements DbFile {
 	 */
 	private void updateParentPointers(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreeInternalPage page) 
 			throws DbException, IOException, TransactionAbortedException{
-		Iterator<BTreeEntry> it = page.iterator();
+		Iterator<BTreeEntry> it = page.iterator();// 遍历当前节点每一个entry
 		BTreePageId pid = page.getId();
 		BTreeEntry e = null;
 		while(it.hasNext()) {
-			e = it.next();
+			e = it.next();// 由entry得到孩子节点pageId
 			updateParentPointer(tid, dirtypages, pid, e.getLeftChild());
 		}
 		if(e != null) {
@@ -455,6 +509,8 @@ public class BTreeFile implements DbFile {
 	 * @param t - the tuple to insert
 	 * @return a list of all pages that were dirtied by this operation. Could include
 	 * many pages since parent pointers will need to be updated when an internal node splits.
+	 * 与heapFile不同的是，可能返回许多page，因为分裂过程会使得很多页变脏
+	 * 
 	 * @see #splitLeafPage(TransactionId, HashMap, BTreeLeafPage, Field)
 	 */
 	public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
@@ -462,10 +518,12 @@ public class BTreeFile implements DbFile {
 		HashMap<PageId, Page> dirtypages = new HashMap<PageId, Page>();
 
 		// get a read lock on the root pointer page and use it to locate the root page
+		// 先得到根节点指针，而后从根节点向下定位要插入的位置
 		BTreeRootPtrPage rootPtr = getRootPtrPage(tid, dirtypages);
 		BTreePageId rootId = rootPtr.getRootId();
 
-		if(rootId == null) { // the root has just been created, so set the root pointer to point to it		
+		if(rootId == null) { // the root has just been created, so set the root pointer to point to it
+			// 暂无根节点，新建一个根节点
 			rootId = new BTreePageId(tableid, numPages(), BTreePageId.LEAF);
 			rootPtr = (BTreeRootPtrPage) getPage(tid, dirtypages, BTreeRootPtrPage.getId(tableid), Permissions.READ_WRITE);
 			rootPtr.setRootId(rootId);
@@ -473,8 +531,9 @@ public class BTreeFile implements DbFile {
 
 		// find and lock the left-most leaf page corresponding to the key field,
 		// and split the leaf page if there are no more slots available
+		// 用findLeafPage找到合适的位置
 		BTreeLeafPage leafPage = findLeafPage(tid, dirtypages, rootId, Permissions.READ_WRITE, t.getField(keyField));
-		if(leafPage.getNumEmptySlots() == 0) {
+		if(leafPage.getNumEmptySlots() == 0) {// 分裂
 			leafPage = splitLeafPage(tid, dirtypages, leafPage, t.getField(keyField));	
 		}
 
