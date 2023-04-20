@@ -48,6 +48,8 @@ public class BTreeInternalPage extends BTreePage {
 	 * bytes for the parent pointer, one extra child pointer (a node with m entries 
 	 * has m+1 pointers to children), and the category of all child pages (either 
 	 * leaf or internal).
+	 * header，slots，extra: parentPointer childPointer categoryOfChild
+	 * 
 	 *  Specifically, the number of entries is equal to: <p>
 	 *          floor((BufferPool.getPageSize()*8 - extra bytes*8) / (entry size * 8 + 1))
 	 * <p> where entry size is the size of entries in this index node
@@ -168,7 +170,7 @@ public class BTreeInternalPage extends BTreePage {
 		// if associated bit is not set, read forward to the next key, and
 		// return null.
 		if (!isSlotUsed(slotId)) {
-			for (int i=0; i<td.getFieldType(keyField).getLen(); i++) {
+			for (int i=0; i<td.getFieldType(keyField).getLen(); i++) {// 跳过这个slot
 				try {
 					dis.readByte();
 				} catch (IOException e) {

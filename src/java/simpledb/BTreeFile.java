@@ -11,6 +11,7 @@ import simpledb.Predicate.Op;
  * a set of internal pages, and a set of leaf pages, which contain a collection of tuples
  * in sorted order. BTreeFile works closely with BTreeLeafPage, BTreeInternalPage,
  * and BTreeRootPtrPage. The format of these pages is described in their constructors.
+ * rootPTRPage,内节点，叶节点，只有叶节点保存tuples
  * 
  * @see simpledb.BTreeLeafPage#BTreeLeafPage
  * @see simpledb.BTreeInternalPage#BTreeInternalPage
@@ -195,7 +196,30 @@ public class BTreeFile implements DbFile {
 			Field f) 
 					throws DbException, TransactionAbortedException {
 		// some code goes here
-        return null;
+		// base case:首先判断当前节点类型，如果是叶节点则返回
+		int type=pid.pgcateg();
+		if(type==BTreePageId.LEAF)
+			// fetch the page from the buffer pool and return it
+			// calling the wrapper function
+			return (BTreeLeafPage) getPage(tid, dirtypages, pid, perm);
+		
+		// locks all internal nodes along the path to the leaf node
+		BTreeInternalPage internalPage =(BTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+		
+		// iterate through the entries in the internal page and compare the entry value to the provided key value
+		Iterator<BTreeEntry> it=internalPage.iterator();
+		BTreeEntry temp = null;
+		while(it.hasNext()) {// 遍历当前节点所有的entry寻找f
+			temp=it.next();
+			// recurse on the left-most child every time in order to find the left-most leaf page
+			if(f==null)
+				return findLeafPage(tid,dirtypages,temp.getLeftChild(),perm,f);
+			if(temp.getKey().compare(Op.GREATER_THAN_OR_EQ,f))
+				// return the first (left) leaf page-> f<=currentKey
+				return findLeafPage(tid,dirtypages,temp.getLeftChild(),perm,f);
+		}
+		// 找到了最后一个entry了，那只能是往右边走
+		return findLeafPage(tid,dirtypages,temp.getRightChild(),perm,f);	
 	}
 	
 	/**
@@ -411,7 +435,7 @@ public class BTreeFile implements DbFile {
 	 */
 	Page getPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm)
 			throws DbException, TransactionAbortedException {
-		if(dirtypages.containsKey(pid)) {
+		if(dirtypages.containsKey(pid)) {// 在bufferPool之前先检查本地缓存
 			return dirtypages.get(pid);
 		}
 		else {

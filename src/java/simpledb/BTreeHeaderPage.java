@@ -5,6 +5,7 @@ import java.io.*;
 /**
  * Each instance of BTreeHeaderPage stores data for one page of a BTreeFile and 
  * implements the Page interface that is used by BufferPool.
+ * 记录一个file里哪些page被使用了，next prev？
  *
  * @see BTreeFile
  * @see BufferPool
@@ -74,11 +75,12 @@ public class BTreeHeaderPage implements Page {
 
 	/**
 	 * Computes the number of bytes in the header while saving room for pointers
+	 * 不计算pointer的大小
 	 */
 	private static int getHeaderSize() {        
 		// pointerBytes: nextPage and prevPage pointers
 		int pointerBytes = 2 * INDEX_SIZE; 
-		return BufferPool.getPageSize() - pointerBytes;
+		return BufferPool.getPageSize() - pointerBytes;// 为啥要用这个pageSize呢？
 	}
 
 	/**

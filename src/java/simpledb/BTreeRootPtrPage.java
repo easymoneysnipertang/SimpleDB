@@ -5,6 +5,7 @@ import java.io.*;
 /**
  * BTreeRootPtrPage stores the pointer to the root node used in the B+ tree and
  * implements Page Interface that is used by BufferPool
+ * 指向根节点，一个table只有一个
  *
  * @see BufferPool
  */
@@ -32,6 +33,7 @@ public class BTreeRootPtrPage implements Page {
 	 * of the root node, followed by a byte to encode the category of the root page
 	 * (either leaf or internal), followed by an integer for the page number
 	 * of the first header page
+	 * 根节点的pageNo，一个byte去说明root是什么类型，第一个header Page的pageNo
 	 */
 	public BTreeRootPtrPage(BTreePageId id, byte[] data) throws IOException {
 		this.pid = id;

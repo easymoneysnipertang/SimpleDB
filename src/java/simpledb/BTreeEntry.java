@@ -8,10 +8,13 @@ import java.io.Serializable;
  * All of the entries or tuples in the left child page should be less than or equal to 
  * the key, and all of the entries or tuples in the right child page should be greater 
  * than or equal to the key.
+ * 一个entry保存一个key和两个child pageId
+ * 内节点保有entry
  * 
  * Note that updating a BTreeEntry does not actually change the data stored on the page 
  * identified by its recordId. After updating a BTreeEntry object, you must call 
  * BTreeInternalPage.updateEntry() in order for the changes to take effect.
+ * 调用set方法后需要调用update才能生效
  *
  * @see BTreeInternalPage
  * @see BTreeInternalPage#updateEntry(BTreeEntry)

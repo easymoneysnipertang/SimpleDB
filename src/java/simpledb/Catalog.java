@@ -30,7 +30,6 @@ public class Catalog {
 		public String pkeyField;
 		
 		public Table(DbFile dbFile, String name, String pkeyField) {
-			super();
 			this.dbFile = dbFile;
 			this.name = name;
 			this.pkeyField = pkeyField;

@@ -128,7 +128,7 @@ public class IntegerAggregator implements Aggregator {
     	default:
     		throw new IllegalArgumentException("Aggregate wrong!");
     	}
-    }
+    }	
 
     /**
      * Create a OpIterator over group aggregate results.

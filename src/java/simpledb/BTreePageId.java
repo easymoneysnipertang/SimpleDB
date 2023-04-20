@@ -5,6 +5,7 @@ package simpledb;
  */
 public class BTreePageId implements PageId {
 
+	// 标识4种不同的page
 	public final static int ROOT_PTR = 0;
 	public final static int INTERNAL = 1;
 	public final static int LEAF = 2;
