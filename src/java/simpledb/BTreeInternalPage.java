@@ -350,7 +350,7 @@ public class BTreeInternalPage extends BTreePage {
 		RecordId rid = e.getRecordId();
 		if(rid == null)
 			throw new DbException("tried to delete entry with null rid");
-		if((rid.getPageId().getPageNumber() != pid.getPageNumber()) || (rid.getPageId().getTableId() != pid.getTableId()))
+		if((rid.getPageId().getPageNumber() != pid.getPageNumber())|| (rid.getPageId().getTableId() != pid.getTableId()) )
 			throw new DbException("tried to delete entry on invalid page or table");
 		if (!isSlotUsed(rid.getTupleNumber()))
 			throw new DbException("tried to delete null entry.");

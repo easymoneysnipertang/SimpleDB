@@ -289,7 +289,7 @@ public class BTreeFile implements DbFile {
 		Field midKey=rightPage.iterator().next().getField(keyField);
 		// 将key包装成一个向上传递的entry
 		BTreeEntry pushedUp=new BTreeEntry(midKey,page.getId(),rightPage.getId());
-		BTreeInternalPage parent=(BTreeInternalPage)getPage(tid,dirtypages,page.getParentId(),Permissions.READ_ONLY);
+		BTreeInternalPage parent=getParentWithEmptySlots(tid,dirtypages,page.getParentId(),field);
 		// 插入该entry
 		parent.insertEntry(pushedUp);
 		dirtypages.put(parent.getId(), parent);
@@ -322,7 +322,7 @@ public class BTreeFile implements DbFile {
 			return page;
 		else
 			return rightPage;
-		
+
 	}
 	
 	/**
@@ -349,19 +349,56 @@ public class BTreeFile implements DbFile {
 	 * @throws TransactionAbortedException
 	 */
 	protected BTreeInternalPage splitInternalPage(TransactionId tid, HashMap<PageId, Page> dirtypages, 
-			BTreeInternalPage page, Field field) 
-					throws DbException, IOException, TransactionAbortedException {
+			BTreeInternalPage page, Field field) throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
         
-        // Split the internal page by adding a new page on the right of the existing
-		// page and moving half of the entries to the new page.  
-		// Push the middle key up into the parent page, 
-		// and recursively split the parent as needed to accommodate the new entry. 
+        // 1.Split the internal page by adding a new page on the right of the existing page
+		
+		BTreeInternalPage rightPage = (BTreeInternalPage) getEmptyPage(tid, dirtypages, BTreePageId.INTERNAL);
+		// moving half of the entries to the new page.  
+		int numberOfEntries=page.getNumEntries();
+		Iterator<BTreeEntry> it=page.reverseIterator();
+		for(int i=0;i<numberOfEntries/2;i++) {
+			BTreeEntry temp=it.next();
+			rightPage.insertEntry(temp);
+			// deletes only a key and a single child pointer
+			// 报错->tried to delete entry on invalid page or table
+			page.deleteKeyAndRightChild(temp);// 从后往前删
+			
+		}
+		
+		// 2.Push the middle key up into the parent page, 
+		// and recursively split the parent as needed to accommodate the new entry.
 		// getParentWithEmtpySlots() will be useful here.  
-		// Don't forget to update the parent pointers of all the children moving to the new page. 
+		
+		BTreeEntry midEntry=it.next();// 再拿出一个entry
+		page.deleteKeyAndRightChild(midEntry);
+		// push up，设置mid的左右孩子
+		midEntry.setLeftChild(page.getId());
+		midEntry.setRightChild(rightPage.getId());
+		// 插入父节点
+		BTreeInternalPage parent=getParentWithEmptySlots(tid,dirtypages,page.getParentId(),midEntry.getKey());
+		parent.insertEntry(midEntry);
+		// 标记为脏
+		dirtypages.put(parent.getId(), parent);
+		dirtypages.put(page.getId(), page);
+		dirtypages.put(rightPage.getId(), rightPage);
+		
+		// 3.Don't forget to update the parent pointers of all the children moving to the new page. 
 		// updateParentPointers() will be useful here.  
-		// Return the page into which an entry with the given key field should be inserted.
-		return null;
+		
+		// 不需要像叶子节点一样调整兄弟间的指针
+		updateParentPointers(tid,dirtypages,parent);
+		updateParentPointers(tid,dirtypages,page);// 作为内部节点，同样有child
+		updateParentPointers(tid,dirtypages,rightPage);
+		
+		// 4.Return the page into which an entry with the given key field should be inserted.
+		
+		if(field.compare(Op.LESS_THAN, midEntry.getKey()))
+			return page;
+		else	
+			return rightPage;
+
 	}
 	
 	/**

@@ -132,10 +132,10 @@ public class Join extends Operator {
     				for(int j=0;j<child2.getTupleDesc().numFields();j++)
     					result.setField(j+child1.getTupleDesc().numFields(), temp2.getField(j));
     				
-    				if(!child2.hasNext()) {//child2走到头刚好找到，得重置，否则下次直接不进入循环
-    					child2.rewind();
-    					current=null;
-    				}
+//    				if(!child2.hasNext()) {// child2走到头刚好找到，得重置，否则下次直接不进入循环
+//    					child2.rewind();// 注释掉也没问题，不进入循环也得重置
+//    					current=null;
+//    				}
     				return result;
     			}
     		}
