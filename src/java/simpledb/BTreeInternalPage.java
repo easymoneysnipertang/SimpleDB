@@ -413,7 +413,7 @@ public class BTreeInternalPage extends BTreePage {
 			throw new DbException("tried to update null entry.");
 		
 		for(int i = rid.getTupleNumber() + 1; i < numSlots; i++) {
-			if(isSlotUsed(i)) {
+			if(isSlotUsed(i)) {// 检查是否是按升序排列
 				if(keys[i].compare(Op.LESS_THAN, e.getKey())) {
 					throw new DbException("attempt to update entry with invalid key " + e.getKey() +
 							" HINT: updated key must be less than or equal to keys on the right");
@@ -427,7 +427,7 @@ public class BTreeInternalPage extends BTreePage {
 					throw new DbException("attempt to update entry with invalid key " + e.getKey() +
 							" HINT: updated key must be greater than or equal to keys on the left");
 				}
-				children[i] = e.getLeftChild().getPageNumber();
+				children[i] = e.getLeftChild().getPageNumber();// 更新数组中的左指针
 				break;
 			}	
 		}

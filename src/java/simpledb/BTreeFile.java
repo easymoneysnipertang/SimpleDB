@@ -553,6 +553,7 @@ public class BTreeFile implements DbFile {
 	public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
 			throws DbException, IOException, TransactionAbortedException {
 		HashMap<PageId, Page> dirtypages = new HashMap<PageId, Page>();
+		// 上层会调用到splitLeafPage，getParentWithEmptySlots会调用到splitInternalPage
 
 		// get a read lock on the root pointer page and use it to locate the root page
 		// 先得到根节点指针，而后从根节点向下定位要插入的位置
@@ -599,6 +600,7 @@ public class BTreeFile implements DbFile {
 	 */
 	private void handleMinOccupancyPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePage page) 
 			throws DbException, IOException, TransactionAbortedException {
+		// 处理key少于半满的情况
 		BTreePageId parentId = page.getParentId();
 		BTreeEntry leftEntry = null;
 		BTreeEntry rightEntry = null;
@@ -607,21 +609,23 @@ public class BTreeFile implements DbFile {
 		// find the left and right siblings through the parent so we make sure they have
 		// the same parent as the page. Find the entries in the parent corresponding to 
 		// the page and siblings
+		// 通过父节点找左右兄弟以及对应的entry
 		if(parentId.pgcateg() != BTreePageId.ROOT_PTR) {
 			parent = (BTreeInternalPage) getPage(tid, dirtypages, parentId, Permissions.READ_WRITE);
 			Iterator<BTreeEntry> ite = parent.iterator();
 			while(ite.hasNext()) {
 				BTreeEntry e = ite.next();
-				if(e.getLeftChild().equals(page.getId())) {
+				if(e.getLeftChild().equals(page.getId())) {// 右entry，左指针指向page
 					rightEntry = e;
 					break;
 				}
-				else if(e.getRightChild().equals(page.getId())) {
+				else if(e.getRightChild().equals(page.getId())) {// 左entry，右指针指向page
 					leftEntry = e;
 				}
 			}
 		}
 		
+		// 调用相应的函数，借key，合并page
 		if(page.getId().pgcateg() == BTreePageId.LEAF) {
 			handleMinOccupancyLeafPage(tid, dirtypages, (BTreeLeafPage) page, parent, leftEntry, rightEntry);
 		}
@@ -651,13 +655,16 @@ public class BTreeFile implements DbFile {
 	private void handleMinOccupancyLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreeLeafPage page, 
 			BTreeInternalPage parent, BTreeEntry leftEntry, BTreeEntry rightEntry) 
 			throws DbException, IOException, TransactionAbortedException {
+		// 处理叶节点，会调用相应的steal和merge函数
 		BTreePageId leftSiblingId = null;
 		BTreePageId rightSiblingId = null;
 		if(leftEntry != null) leftSiblingId = leftEntry.getLeftChild();
 		if(rightEntry != null) rightSiblingId = rightEntry.getRightChild();
 		
 		int maxEmptySlots = page.getMaxTuples() - page.getMaxTuples()/2; // ceiling
+		// 优先找左兄弟借，没有左兄弟才找右兄弟？
 		if(leftSiblingId != null) {
+			// 得到左兄弟节点，查看他的key情况决定是借key还是merge
 			BTreeLeafPage leftSibling = (BTreeLeafPage) getPage(tid, dirtypages, leftSiblingId, Permissions.READ_WRITE);
 			// if the left sibling is at minimum occupancy, merge with it. Otherwise
 			// steal some tuples from it
@@ -697,10 +704,31 @@ public class BTreeFile implements DbFile {
 	protected void stealFromLeafPage(BTreeLeafPage page, BTreeLeafPage sibling,
 			BTreeInternalPage parent, BTreeEntry entry, boolean isRightSibling) throws DbException {
 		// some code goes here
-        //
+		
         // Move some of the tuples from the sibling to the page so
-		// that the tuples are evenly distributed. Be sure to update
-		// the corresponding parent entry.
+		// that the tuples are evenly distributed. 
+		
+		Iterator<Tuple> it;
+        // 首先判断是借左兄弟还是右兄弟
+		if(isRightSibling) 
+			it=sibling.iterator();// 拿右兄弟第一个key
+		else
+			it=sibling.reverseIterator();// 拿左兄弟最后一个key
+		// 两边均分，需要拿出numberOfSteal个tuple
+		int numberOfSteal=(sibling.getNumTuples()+page.getNumTuples())/2-page.getNumTuples();
+		Tuple tupleToSteal=null;
+		for(int i=0;i<numberOfSteal;i++) {
+			tupleToSteal=it.next();
+			// 先删除再插入
+			sibling.deleteTuple(tupleToSteal);
+			page.insertTuple(tupleToSteal);
+		}
+		
+		// Be sure to update the corresponding parent entry.
+		// split的时候都是把右节点第一个key放上去
+		if(isRightSibling)tupleToSteal=it.next();// 如果是右兄弟借需要再走一个拿右兄弟的第一个key
+		entry.setKey(tupleToSteal.getField(keyField));
+		parent.updateEntry(entry);
 	}
 
 	/**
@@ -725,6 +753,7 @@ public class BTreeFile implements DbFile {
 	private void handleMinOccupancyInternalPage(TransactionId tid, HashMap<PageId, Page> dirtypages, 
 			BTreeInternalPage page, BTreeInternalPage parent, BTreeEntry leftEntry, BTreeEntry rightEntry) 
 					throws DbException, IOException, TransactionAbortedException {
+		// 处理内节点的半满情况
 		BTreePageId leftSiblingId = null;
 		BTreePageId rightSiblingId = null;
 		if(leftEntry != null) leftSiblingId = leftEntry.getLeftChild();
@@ -777,10 +806,36 @@ public class BTreeFile implements DbFile {
 			BTreeInternalPage page, BTreeInternalPage leftSibling, BTreeInternalPage parent,
 			BTreeEntry parentEntry) throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
-        // Move some of the entries from the left sibling to the page so
-		// that the entries are evenly distributed. Be sure to update
-		// the corresponding parent entry. Be sure to update the parent
-		// pointers of all children in the entries that were moved.
+        // Move some of the entries from the left sibling to the page so 
+		// that the entries are evenly distributed.
+		
+		Iterator<BTreeEntry>it=leftSibling.reverseIterator();// 从左兄弟借
+		int numberOfSteal=(leftSibling.getNumEntries()-page.getNumEntries())/2;
+		// the original key in the parent is "pulled down" to the right-hand page
+		BTreeEntry entryInSibling=null;
+		// 以parent的key为桥，一个个放到右边的page中（准备放到parent，但只有最后一个才会真的放上去）
+		BTreeEntry midEntry=new BTreeEntry(parentEntry.getKey(),null,page.iterator().next().getLeftChild());
+
+		for(int i=0;i<numberOfSteal;i++) {
+			entryInSibling=it.next();// 左兄弟拿出一个entry
+			midEntry.setLeftChild(entryInSibling.getRightChild());// 设置对应的子指针
+			page.insertEntry(midEntry);// 从parent上面拿下来
+			// 准备拿到parent上面去再放入右边兄弟
+			// 如果真的放过去了，会在插入前会再拿出左孩子指针给它。右孩子已经被上一个当作左孩子放过去了！
+			midEntry=new BTreeEntry(entryInSibling.getKey(),null,entryInSibling.getRightChild());
+			leftSibling.deleteKeyAndRightChild(entryInSibling);// 拿entry，相应的孩子也得拿过去
+		}
+
+		// Be sure to update the corresponding parent entry. 
+		
+		//the last key in the left-hand page is "pushed up" to the parent.
+		parentEntry.setKey(midEntry.getKey());
+		parent.updateEntry(parentEntry);// parentEntry的child指针并没有变
+		
+		// Be sure to update the parent pointers of all children in the entries that were moved.
+		
+		updateParentPointers(tid,dirtypages,page);
+		updateParentPointers(tid,dirtypages,leftSibling);
 	}
 	
 	/**
@@ -805,10 +860,37 @@ public class BTreeFile implements DbFile {
 			BTreeInternalPage page, BTreeInternalPage rightSibling, BTreeInternalPage parent,
 			BTreeEntry parentEntry) throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
-        // Move some of the entries from the right sibling to the page so
-		// that the entries are evenly distributed. Be sure to update
-		// the corresponding parent entry. Be sure to update the parent
-		// pointers of all children in the entries that were moved.
+		
+		// Move some of the entries from the right sibling to the page so 
+		// that the entries are evenly distributed.
+		
+		Iterator<BTreeEntry>it=rightSibling.iterator();// 从右兄弟借
+		int numberOfSteal=(rightSibling.getNumEntries()-page.getNumEntries())/2;
+		// the original key in the parent is "pulled down" to the right-hand page
+		BTreeEntry entryInSibling=null;
+		// 以parent的key为桥，一个个放到左边的page中
+		BTreeEntry midEntry=new BTreeEntry(parentEntry.getKey(),page.reverseIterator().next().getRightChild(),null);
+		
+		for(int i=0;i<numberOfSteal;i++) {
+			entryInSibling=it.next();// 右兄弟拿出一个entry
+			midEntry.setRightChild(entryInSibling.getLeftChild());// 设置对应的子指针
+			page.insertEntry(midEntry);// 从parent上面拿下来
+			// 准备拿到parent上面去再放入左边兄弟
+			// 如果真的放过去了，会在插入前会再拿出右孩子指针给它。左孩子已经被上一个当作右孩子放过去了！
+			midEntry=new BTreeEntry(entryInSibling.getKey(),entryInSibling.getLeftChild(),null);
+			rightSibling.deleteKeyAndLeftChild(entryInSibling);
+		}
+
+		// Be sure to update the corresponding parent entry. 
+		
+		//the last key in the right-hand page is "pushed up" to the parent.
+		parentEntry.setKey(midEntry.getKey());
+		parent.updateEntry(parentEntry);
+		
+		// Be sure to update the parent pointers of all children in the entries that were moved.
+		
+		updateParentPointers(tid,dirtypages,page);
+		updateParentPointers(tid,dirtypages,rightSibling);
 	}
 	
 	/**
