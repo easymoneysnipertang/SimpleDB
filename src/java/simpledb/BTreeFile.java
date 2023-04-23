@@ -360,10 +360,10 @@ public class BTreeFile implements DbFile {
 		Iterator<BTreeEntry> it=page.reverseIterator();
 		for(int i=0;i<numberOfEntries/2;i++) {
 			BTreeEntry temp=it.next();
-			rightPage.insertEntry(temp);
 			// deletes only a key and a single child pointer
 			// 报错->tried to delete entry on invalid page or table
 			page.deleteKeyAndRightChild(temp);// 从后往前删
+			rightPage.insertEntry(temp);// 得先删除再插入！插入时会设置他的recordId！
 			
 		}
 		
