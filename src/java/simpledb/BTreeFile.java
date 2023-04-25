@@ -239,6 +239,74 @@ public class BTreeFile implements DbFile {
 					throws DbException, TransactionAbortedException {
 		return findLeafPage(tid, new HashMap<PageId, Page>(), pid, perm, f);
 	}
+	
+	/**
+	 * add by tang
+	 * 
+	 * Recursive function which finds and locks the leaf page in the B+ tree corresponding to
+	 * the right-most page possibly containing the key field f. It locks all internal
+	 * nodes along the path to the leaf node with READ_ONLY permission, and locks the 
+	 * leaf node with permission perm.
+	 * 
+	 * If f is null, it finds the right-most leaf page -- used for the iterator
+	 * 
+	 * @param tid - the transaction id
+	 * @param dirtypages - the list of dirty pages which should be updated with all new dirty pages
+	 * @param pid - the current page being searched
+	 * @param perm - the permissions with which to lock the leaf page
+	 * @param f - the field to search for
+	 * @return the right-most leaf page possibly containing the key field f
+	 * 
+	 */
+	private BTreeLeafPage reverseFindLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
+			Field f) 
+					throws DbException, TransactionAbortedException {
+		// some code goes here
+		// base case:首先判断当前节点类型，如果是叶节点则返回
+		int type=pid.pgcateg();
+		if(type==BTreePageId.LEAF)
+			// fetch the page from the buffer pool and return it
+			// calling the wrapper function
+			return (BTreeLeafPage) getPage(tid, dirtypages, pid, perm);
+		
+		// locks all internal nodes along the path to the leaf node
+		BTreeInternalPage internalPage =(BTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+		
+		// reverseIterate through the entries in the internal page and compare the entry value to the provided key value
+		Iterator<BTreeEntry> it=internalPage.reverseIterator();
+		BTreeEntry temp = null;// 遍历出一个entry
+		while(it.hasNext()) {// 遍历当前节点所有的entry寻找f
+			temp=it.next();
+			// recurse on the right-most child every time in order to find the right-most leaf page
+			if(f==null)
+				return findLeafPage(tid,dirtypages,temp.getRightChild(),perm,f);
+			if(temp.getKey().compare(Op.LESS_THAN_OR_EQ,f))
+				// return the first (right) leaf page
+				return findLeafPage(tid,dirtypages,temp.getRightChild(),perm,f);
+		}
+		// 找到了最后一个entry了，那只能是往左边走
+		return findLeafPage(tid,dirtypages,temp.getLeftChild(),perm,f);	
+	}
+	
+	/**
+	 * add by tang
+	 * 
+	 * Convenience method to find a leaf page when there is no dirtypages HashMap.
+	 * Used by the BTreeFile reverseIterator.
+	 * @see #findLeafPage(TransactionId, HashMap, BTreePageId, Permissions, Field)
+	 * 
+	 * @param tid - the transaction id
+	 * @param pid - the current page being searched
+	 * @param perm - the permissions with which to lock the leaf page
+	 * @param f - the field to search for
+	 * @return the right-most leaf page possibly containing the key field f
+	 * 
+	 */
+	BTreeLeafPage reverseFindLeafPage(TransactionId tid, BTreePageId pid, Permissions perm,
+			Field f) 
+					throws DbException, TransactionAbortedException {
+		return reverseFindLeafPage(tid, new HashMap<PageId, Page>(), pid, perm, f);
+	}
 
 	/**
 	 * Split a leaf page to make room for new tuples and recursively split the parent node
@@ -1306,7 +1374,119 @@ public class BTreeFile implements DbFile {
 	public DbFileIterator iterator(TransactionId tid) {
 		return new BTreeFileIterator(this, tid);
 	}
+	
+	/**
+	 * add by tang
+	 * 
+	 * get the specified tuples from the file based on its IndexPredicate value on
+	 * behalf of the specified transaction. This method will acquire a read lock on
+	 * the affected pages of the file, and may block until the lock can be
+	 * acquired.
+	 * 
+	 * @param tid - the transaction id
+	 * @param ipred - the index predicate value to filter on
+	 * @return an iterator for the filtered tuples
+	 */
+	public DbFileIterator reverseIndexIterator(TransactionId tid, IndexPredicate ipred) {
+		return new BTreeSearchIterator(this, tid, ipred);
+	}
 
+	/**
+	 * add by tang
+	 * 
+	 * Get an iterator for all tuples in this B+ tree file in reverseSorted order. This method 
+	 * will acquire a read lock on the affected pages of the file, and may block until 
+	 * the lock can be acquired.
+	 * 
+	 * @param tid - the transaction id
+	 * @return an iterator for all the tuples in this file
+	 */
+	public DbFileIterator reverseIterator(TransactionId tid) {
+		return new BTreeFileReverseIterator(this, tid);
+	}
+
+}
+
+/**
+ * add by tang
+ * 
+ * Helper class that implements the Java reverseIterator for tuples on a BTreeFile
+ */
+class BTreeFileReverseIterator extends AbstractDbFileIterator {
+
+	Iterator<Tuple> it = null;
+	BTreeLeafPage curp = null;
+
+	TransactionId tid;
+	BTreeFile f;
+
+	/**
+	 * Constructor for this iterator
+	 * @param f - the BTreeFile containing the tuples
+	 * @param tid - the transaction id
+	 */
+	public BTreeFileReverseIterator(BTreeFile f, TransactionId tid) {
+		this.f = f;
+		this.tid = tid;
+	}
+
+	/**
+	 * Open this iterator by getting an iterator on the last leaf page
+	 */
+	public void open() throws DbException, TransactionAbortedException {
+		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(
+				tid, BTreeRootPtrPage.getId(f.getId()), Permissions.READ_ONLY);
+		BTreePageId root = rootPtr.getRootId();
+		curp = f.reverseFindLeafPage(tid, root, Permissions.READ_ONLY, null);
+		it = curp.reverseIterator();
+	}
+
+	/**
+	 * Read the next tuple either from the current page if it has more tuples or
+	 * from the next page by following the left sibling pointer.
+	 * 
+	 * @return the next tuple, or null if none exists
+	 */
+	@Override
+	protected Tuple readNext() throws TransactionAbortedException, DbException {
+		if (it != null && !it.hasNext())
+			it = null;
+
+		while (it == null && curp != null) {
+			BTreePageId nextp = curp.getLeftSiblingId();
+			if(nextp == null) {
+				curp = null;
+			}
+			else {
+				curp = (BTreeLeafPage) Database.getBufferPool().getPage(tid,
+						nextp, Permissions.READ_ONLY);
+				it = curp.reverseIterator();
+				if (!it.hasNext())
+					it = null;
+			}
+		}
+
+		if (it == null)
+			return null;
+		return it.next();
+	}
+
+	/**
+	 * rewind this iterator back to the beginning of the tuples
+	 */
+	public void rewind() throws DbException, TransactionAbortedException {
+		close();
+		open();
+	}
+
+	/**
+	 * close the iterator
+	 */
+	public void close() {
+		super.close();
+		it = null;
+		curp = null;
+	}
 }
 
 /**
