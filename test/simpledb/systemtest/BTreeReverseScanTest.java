@@ -39,7 +39,7 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
             for (int rows : rowSizes) {
                 ArrayList<ArrayList<Integer>> tuples = new ArrayList<ArrayList<Integer>>();
                 BTreeFile f = BTreeUtility.createRandomBTreeFile(columns, rows, null, tuples, keyField);
-                BTreeScan scan = new BTreeScan(tid, f.getId(), "table", null);
+                BTreeReverseScan scan = new BTreeReverseScan(tid, f.getId(), "table", null);
                 SystemTestUtil.matchTuples(scan, tuples);
                 Database.resetBufferPool(BufferPool.DEFAULT_PAGES);
             }
