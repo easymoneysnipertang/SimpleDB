@@ -39,6 +39,8 @@ public class BufferPool {
     private final int numPages;
     private HashMap<Integer,Page> pages;//存放bufferPool中的page，key用pageId的hashCode()
     private LinkedList<PageId> pageOrder;
+    // 锁管理器
+    PageLockManager lockManager;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -50,6 +52,7 @@ public class BufferPool {
     	this.numPages=numPages;
     	pages=new HashMap<Integer,Page>();
     	pageOrder=new LinkedList<PageId>();
+    	lockManager=new PageLockManager();
     }
     
     public static int getPageSize() {
@@ -84,6 +87,13 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
+    	// 先判断是什么锁
+    	int lockType=perm==Permissions.READ_ONLY?PageLock.SHARED:PageLock.EXCLUSIVE;
+    	boolean isAcquired=false;
+    	// 循环获取锁
+    	while(!isAcquired) {// 忙等待
+    		isAcquired=lockManager.accuireLock(pid, tid, lockType);
+    	}
     	
     	//page有自己独有的id(hashCode),page所属的table也有id(getTableId)
     	if(!pages.containsKey(pid.hashCode())) {//查询的page不在bufferPool中
@@ -114,6 +124,7 @@ public class BufferPool {
     public void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+    	lockManager.releaseLock(pid, tid);
     }
 
     /**
@@ -124,13 +135,14 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+    	lockManager.completeTransaction(tid);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+        return lockManager.isHoldLock(p, tid);
     }
 
     /**
