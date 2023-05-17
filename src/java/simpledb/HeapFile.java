@@ -155,7 +155,15 @@ public class HeapFile implements DbFile {
     			ret.add(page);
     			return ret;// 也别break了，直接return吧
     		}
+    		
+    		// if a transaction t finds no free slot on a page p, 
+    		// t may immediately release the lock on p.
+    		else {
+    			Database.getBufferPool().releasePage(tid, pid);
+    		}
     	}
+    	
+    	// problem? 没有锁能写吗，能啊，page level locking！
     	// 报错->the next 512 additions should live on a new page
     	// 在file里追加一页
     	RandomAccessFile raf=new RandomAccessFile(table,"rw");
@@ -164,7 +172,9 @@ public class HeapFile implements DbFile {
 		byte[] emptyPageData=HeapPage.createEmptyPageData();
     	raf.write(emptyPageData);
     	raf.close();
+    	
     	// 拿出新的一页做插入
+    	// 都是使用的getPage()
     	HeapPageId pid=new HeapPageId(this.getId(),numPages()-1);
     	HeapPage page=(HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
     	page.insertTuple(t);

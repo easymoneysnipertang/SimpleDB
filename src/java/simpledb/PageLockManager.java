@@ -1,6 +1,5 @@
 package simpledb;
 
-import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PageLockManager {
