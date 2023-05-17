@@ -288,14 +288,28 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
     	// cache-> LRU原则
-    	PageId pid=pageOrder.getFirst();
-    	try {
-			flushPage(pid);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-    	discardPage(pid);
+    	// we must not evict dirty pages.
+    	for(int i=0;i<numPages;i++) {
+			PageId pid=pageOrder.getFirst();
+			Page p=pages.get(pid.hashCode());
+			if(p.isDirty()!=null) {// 不是脏页
+				pageOrder.remove(pid);// 放到后面去
+				pageOrder.add(pid);
+			}
+			else {
+			// 没必要刷新啊，反正只会evict不脏的
+//			try {
+//				flushPage(pid);
+//			} catch (IOException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+				discardPage(pid);
+				return;
+			}
+    	}
+    	// 所有页面都是脏页
+    	throw new DbException("all the pages in the bufferPool are dirty!");
     }
 
 }
