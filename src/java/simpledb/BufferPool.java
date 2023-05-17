@@ -135,7 +135,8 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
-    	lockManager.completeTransaction(tid);
+    	// should always commit
+    	transactionComplete(tid,true);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -156,6 +157,32 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+    	if(commit) {
+    		// flush dirty pages associated to the transaction to disk
+    		flushPages(tid);
+    	}
+    	else {
+    		// restoring the page to its on-disk state
+    		// page-level 需要锁吧
+    		synchronized(this) {
+    			for(Page page:pages.values()) {
+    				// 遍历，找到当前事务弄脏的page
+    				if(tid.equals(page.isDirty())) {
+    					PageId pid=page.getId();
+    					// 从磁盘读出原来的那页
+    					DbFile table=Database.getCatalog().getDatabaseFile(pid.getTableId());
+    					Page old=table.readPage(pid);
+    					// 放回缓存，覆盖原来的page
+    					pages.put(pid.hashCode(), old);
+    					// 调整链表
+    					pageOrder.remove(pid);
+    					pageOrder.add(pid);
+    				}
+    			}
+    		}
+    	}
+    	//release any state the BufferPool keeps regarding the transaction
+    	lockManager.releaseAllLocks(tid);
     }
 
     /**
@@ -278,6 +305,15 @@ public class BufferPool {
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+    	// flush dirty pages associated to the transaction to disk
+    	for(Page p:pages.values()) {// 遍历缓存中的所有page
+    		if(tid.equals(p.isDirty())) {
+    			// 如果该页为脏，且tid等于相应的tid
+    			flushPage(p.getId());
+    			pageOrder.remove(p.getId());// 放到后面去
+				pageOrder.add(p.getId());
+    		}
+    	}
     }
 
     /**

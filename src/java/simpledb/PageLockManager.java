@@ -108,7 +108,7 @@ public class PageLockManager {
 	}
 	
 	// transactionComplete(TransactionId tid)
-	public synchronized void completeTransaction(TransactionId tid) {
+	public synchronized void releaseAllLocks(TransactionId tid) {
 		// 将tid锁定的页面全部释放
 		for(PageId pid:lockedPages.keySet())
 			releaseLock(pid,tid);
