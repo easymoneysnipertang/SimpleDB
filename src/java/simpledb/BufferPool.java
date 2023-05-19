@@ -2,8 +2,8 @@ package simpledb;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.HashMap;
-//import java.util.LinkedList;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -36,11 +36,12 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
     private final int numPages;
-    private HashMap<PageId,Page> pages;//存放bufferPool中的page，key用pageId的hashCode()
+    private ConcurrentHashMap<PageId,Page> pages;//存放bufferPool中的page，key用pageId的hashCode()
     //private LinkedList<PageId> pageOrder;
     // 锁管理器
     PageLockManager lockManager;
-
+    
+    
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -49,7 +50,7 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
     	this.numPages=numPages;
-    	pages=new HashMap<PageId,Page>();
+    	pages=new ConcurrentHashMap<>();
     	//pageOrder=new LinkedList<PageId>();
     	lockManager=new PageLockManager();
     }
@@ -95,6 +96,7 @@ public class BufferPool {
     	while(!isAcquired) {// 忙等待
     		isAcquired=lockManager.accuireLock(pid, tid, lockType);
     		long nowTrying =System.currentTimeMillis();
+    		
     		// resolve deadlock
     		if(nowTrying-startTrying>500)// timeout!
     			// 放弃当前事务t
@@ -113,7 +115,7 @@ public class BufferPool {
     		}
     		
     		//读入bufferPool
-			pages.put(pid, page);
+			pages.put(page.getId(), page);
 			//pageOrder.add(pid);
     	}
         return pages.get(pid);//lock? insufficient? not necessary for lab1?
@@ -179,6 +181,7 @@ public class BufferPool {
     					// 从磁盘读出原来的那页
     					DbFile table=Database.getCatalog().getDatabaseFile(pid.getTableId());
     					Page old=table.readPage(pid);
+    					//pages.remove(pid);
     					// 放回缓存，覆盖原来的page
     					pages.put(pid, old);// 定位出来就是这有问题，写了个null？
 //    					// 调整链表
@@ -190,6 +193,7 @@ public class BufferPool {
     	}
     	//release any state the BufferPool keeps regarding the transaction
     	lockManager.releaseAllLocks(tid);
+
     }
 
     /**
@@ -221,9 +225,9 @@ public class BufferPool {
     		// 那有意义吗？f里面调用getPage不是已经将他放进缓存了吗
     		// 有可能并发处理？虽然它在缓存中，但过程中可能缓存又放入了page？
     		// 锁住了，不会动你的！
-    		if(pages.size()>=numPages) {// insufficient space
-    			evictPage();
-    		}
+//    		if(pages.size()>=numPages) {// insufficient space
+//    			evictPage();
+//    		}
 			pages.put(page.getId(), page);// update
 //			pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对他进行更新
 //			pageOrder.add(page.getId());
@@ -252,9 +256,9 @@ public class BufferPool {
         ArrayList<Page> p=f.deleteTuple(tid, t);
         for(Page page:p) {
         	page.markDirty(true, tid);
-        	if(pages.size()>=numPages) {// insufficient space
-    			evictPage();
-    		}
+//        	if(pages.size()>=numPages) {// insufficient space
+//    			evictPage();
+//    		}
 			pages.put(page.getId(), page);// update
 //			pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对他进行更新
 //			pageOrder.add(page.getId());
@@ -355,15 +359,19 @@ public class BufferPool {
 //			}
 //    	}
     	// 别给我LRU了，逮着是啥就是啥，随便了
-    	for(Page p:pages.values()) {
-    		if(p.isDirty()!=null) {// 不是脏页不能动
+    	Page testPage=null;
+    	for(PageId pid:pages.keySet()) {
+    		testPage=pages.get(pid);
+    		if(testPage.isDirty()!=null) {// 是脏页不能动
+    			testPage=null;
     			continue;
     		}
-    		discardPage(p.getId());
-    		return;
+    		break;
+    		
     	}
     	// 所有页面都是脏页
-    	throw new DbException("all the pages in the bufferPool are dirty!");
+    	if(testPage==null)throw new DbException("all the pages in the bufferPool are dirty!");
+    	discardPage(testPage.getId());
     }
 
 }

@@ -17,7 +17,24 @@ public class TupleDesc implements Serializable {
 
         private static final long serialVersionUID = 1L;
 
-        /**
+        @Override
+		public int hashCode() {
+			return Objects.hash(fieldName, fieldType);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			TDItem other = (TDItem) obj;
+			return Objects.equals(fieldName, other.fieldName) && fieldType == other.fieldType;
+		}
+
+		/**
          * The type of the field
          * */
         public final Type fieldType;
@@ -188,37 +205,31 @@ public class TupleDesc implements Serializable {
         return new TupleDesc(typeAr,fieldAr);
     }
 
-    /**
-     * Compares the specified object with this TupleDesc for equality. Two
-     * TupleDescs are considered equal if they have the same number of items
-     * and if the i-th type in this TupleDesc is equal to the i-th type in o
-     * for every i.
-     * 
-     * @param o
-     *            the Object to be compared for equality with this TupleDesc.
-     * @return true if the object is equal to this TupleDesc.
-     */
+    @Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + Arrays.hashCode(tdItems);
+		return result;
+	}
 
-    public boolean equals(Object o) {
-        // some code goes here
-        if(o instanceof TupleDesc) {
-        	TupleDesc temp=(TupleDesc)o;
-        	if(this.numFields()==temp.numFields()) {
-        		for(int i=0;i<numFields();i++) {//比较两个对象数组中每个元素的type
-        			if(!this.tdItems[i].fieldType.equals(temp.tdItems[i].fieldType))
-        				return false;
-        		}
-        		return true;
-        	}
-        }
-        return false;
-    }
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		TupleDesc other = (TupleDesc) obj;
+		return Arrays.equals(tdItems, other.tdItems);
+	}
 
-    public int hashCode() {
-        // If you want to use TupleDesc as keys for HashMap, implement this so
-        // that equal objects have equals hashCode() results
-        throw new UnsupportedOperationException("unimplemented");
-    }
+//    public int hashCode() {
+//        // If you want to use TupleDesc as keys for HashMap, implement this so
+//        // that equal objects have equals hashCode() results
+//        throw new UnsupportedOperationException("unimplemented");
+//    }
 
     /**
      * Returns a String describing this descriptor. It should be of the form

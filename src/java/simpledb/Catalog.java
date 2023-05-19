@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import simpledb.Catalog.Table;
+
 /**
  * The Catalog keeps track of all available tables in the database and their
  * associated schemas.
@@ -46,7 +48,7 @@ public class Catalog {
      */
     public Catalog() {
         // some code goes here
-    	tables=new HashMap();
+    	tables=new HashMap<Integer, Table>();
     }
 
     /**
