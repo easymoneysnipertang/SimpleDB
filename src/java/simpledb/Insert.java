@@ -55,9 +55,9 @@ public class Insert extends Operator {
 
     public void close() {
         // some code goes here
-    	super.close();
     	//isCalled=false;// 你也别给我反复插了
     	child.close();
+    	super.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
@@ -93,16 +93,11 @@ public class Insert extends Operator {
         	try {
 				Database.getBufferPool().insertTuple(tid, tableId, t);
 				count++;
-			} catch (DbException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-			} catch (TransactionAbortedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			} 
+        	// 把transactionAbortedException截胡了！老报错！
         }
         Tuple ret=new Tuple(td);
         ret.setField(0, new IntField(count));

@@ -64,7 +64,7 @@ public class TransactionTest extends SimpleDbTestBase {
         DbFileIterator it = table.iterator(tid);
         it.open();
         Tuple tup = it.next();
-        assertEquals(threads, ((IntField) tup.getField(0)).getValue());
+        assertEquals(threads, ((IntField) tup.getField(0)).getValue());//这报错，应该有俩线程，但没开出来
         it.close();
         Database.getBufferPool().transactionComplete(tid);
         Database.getBufferPool().flushAllPages();

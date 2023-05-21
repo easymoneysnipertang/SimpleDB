@@ -40,7 +40,7 @@ public class Catalog {
 	}
 	
 	//用map存放catalog里所有table
-	private HashMap<Integer,Table> tables;//每个DbFile都有一个单独的id
+	private ConcurrentHashMap<Integer,Table> tables;//每个DbFile都有一个单独的id
 	
     /**
      * Constructor.
@@ -48,7 +48,7 @@ public class Catalog {
      */
     public Catalog() {
         // some code goes here
-    	tables=new HashMap<Integer, Table>();
+    	tables=new ConcurrentHashMap<>();
     }
 
     /**

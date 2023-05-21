@@ -77,13 +77,7 @@ public class Delete extends Operator {
         	try {
 				Database.getBufferPool().deleteTuple(tid, t);
 	        	count++;
-			} catch (DbException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (TransactionAbortedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
