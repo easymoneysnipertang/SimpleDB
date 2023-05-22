@@ -9,7 +9,10 @@ public class PageLockManager {
 	 *并且其内部的结构可以让其在进行写操作的时候能够将锁的粒度保持地尽量地小，
 	 *允许多个修改操作并发进行，其关键在于使用了锁分段技术。 
 	*/
-	ConcurrentHashMap<PageId,ConcurrentHashMap<TransactionId,PageLock>> lockedPages=new ConcurrentHashMap<>();
+	ConcurrentHashMap<PageId,ConcurrentHashMap<TransactionId,PageLock>> lockedPages;
+	public PageLockManager() {
+		lockedPages=new ConcurrentHashMap<>();
+	}
 	
 	// getPage(TransactionId tid, PageId pid, Permissions perm)
 	public synchronized boolean accuireLock(PageId pid,TransactionId tid,int lockType) {

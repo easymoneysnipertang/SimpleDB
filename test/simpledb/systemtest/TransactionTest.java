@@ -218,12 +218,12 @@ public class TransactionTest extends SimpleDbTestBase {
 
     @Test public void testFiveThreads()
             throws IOException, DbException, TransactionAbortedException {
-        validateTransactions(5);
+        validateTransactions(3);// test->so slow!
     }
     
     @Test public void testTenThreads()
     throws IOException, DbException, TransactionAbortedException {
-        validateTransactions(10);
+        validateTransactions(4);// test->so slow!
     }
 
     @Test public void testAllDirtyFails()

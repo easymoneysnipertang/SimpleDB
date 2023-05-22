@@ -39,7 +39,7 @@ public class BufferPool {
     private final int numPages;
     private ConcurrentHashMap<PageId,Page> pages;//存放bufferPool中的page，key用pageId的hashCode()
     //private LinkedList<PageId> pageOrder;
-    private ConcurrentLinkedQueue<PageId> pageOrder;
+    //private ConcurrentLinkedQueue<PageId> pageOrder;
     // 锁管理器
     PageLockManager lockManager;
     
@@ -54,7 +54,7 @@ public class BufferPool {
     	this.numPages=numPages;
     	pages=new ConcurrentHashMap<>();
     	//pageOrder=new LinkedList<PageId>();
-    	pageOrder=new ConcurrentLinkedQueue<>();
+    	//pageOrder=new ConcurrentLinkedQueue<>();
     	lockManager=new PageLockManager();
     }
     
@@ -101,9 +101,15 @@ public class BufferPool {
     		long nowTrying =System.currentTimeMillis();
     		
     		// resolve deadlock
-    		if(nowTrying-startTrying>500)// timeout!
+    		if(nowTrying-startTrying>300)// timeout!
     			// 放弃当前事务t
     			throw new TransactionAbortedException();
+//			try {
+//	            Thread.sleep(30);
+//	        }
+//	        catch (InterruptedException e) {
+//	            e.printStackTrace();
+//	        }
     	}
     	
     	//page有自己独有的id(hashCode),page所属的table也有id(getTableId)
@@ -119,7 +125,7 @@ public class BufferPool {
     		
     		//读入bufferPool
 			pages.put(page.getId(), page);
-			pageOrder.offer(pid);
+			//pageOrder.offer(pid);
     	}
         return pages.get(pid);//lock? insufficient? not necessary for lab1?
     }
@@ -188,8 +194,8 @@ public class BufferPool {
     					// 放回缓存，覆盖原来的page
     					pages.put(pid, old);// 定位出来就是这有问题，写了个null？
 //    					// 调整链表
-    					pageOrder.remove(pid);
-    					pageOrder.offer(pid);
+//    					pageOrder.remove(pid);
+//    					pageOrder.offer(pid);
     				}
     			}
     		}
@@ -232,8 +238,8 @@ public class BufferPool {
 //    			evictPage();
 //    		}
 			pages.put(page.getId(), page);// update
-			pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对他进行更新
-			pageOrder.offer(page.getId());
+//			pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对他进行更新
+//			pageOrder.offer(page.getId());
     	}
     }
 
@@ -263,8 +269,8 @@ public class BufferPool {
 //    			evictPage();
 //    		}
 			pages.put(page.getId(), page);// update
-			pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对他进行更新
-			pageOrder.offer(page.getId());
+//			pageOrder.remove(page.getId());// 最近进行了调用，LRU原则对他进行更新
+//			pageOrder.offer(page.getId());
         }
     }
 
@@ -294,7 +300,7 @@ public class BufferPool {
         // not necessary for lab1
     	pages.remove(pid);
     	//System.out.println(pageOrder.remove(pid));
-    	pageOrder.remove(pid);
+//    	pageOrder.remove(pid);
     }
 
     /**
@@ -336,48 +342,48 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
     	// cache-> LRU原则
-    	// we must not evict dirty pages.
-    	for(int i=0;i<numPages;i++) {
-			PageId pid=pageOrder.peek();
-			Page p=pages.get(pid);
-			// 报错？p为null？->回滚造成的错
-			if(p==null) {// 打补丁
-				pages.remove(pid);
-				pageOrder.remove(pid);
-				continue;
-			}
-			if(p.isDirty()!=null) {// 是脏页
-				pageOrder.remove(pid);// 放到后面去
-				pageOrder.offer(pid);
-			}
-			else {
-			// 没必要刷新啊，反正只会evict不脏的
-//			try {
-//				flushPage(pid);
-//			} catch (IOException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
+//    	// we must not evict dirty pages.
+//    	for(int i=0;i<numPages;i++) {
+//			PageId pid=pageOrder.peek();
+//			Page p=pages.get(pid);
+//			// 报错？p为null？->回滚造成的错
+//			if(p==null) {// 打补丁
+//				pages.remove(pid);
+//				pageOrder.remove(pid);
+//				continue;
 //			}
-				discardPage(pid);
-				return;
-			}
-    	}
-    	throw new DbException("all the pages in the bufferPool are dirty!");
-    	
-//    	// 别给我LRU了，逮着是啥就是啥，随便了
-//    	Page testPage=null;
-//    	for(PageId pid:pages.keySet()) {
-//    		testPage=pages.get(pid);
-//    		if(testPage.isDirty()!=null) {// 是脏页不能动
-//    			testPage=null;
-//    			continue;
-//    		}
-//    		break;
-//    		
+//			if(p.isDirty()!=null) {// 是脏页
+//				pageOrder.remove(pid);// 放到后面去
+//				pageOrder.offer(pid);
+//			}
+//			else {
+//			// 没必要刷新啊，反正只会evict不脏的
+////			try {
+////				flushPage(pid);
+////			} catch (IOException e) {
+////				// TODO Auto-generated catch block
+////				e.printStackTrace();
+////			}
+//				discardPage(pid);
+//				return;
+//			}
 //    	}
-//    	// 所有页面都是脏页
-//    	if(testPage==null)throw new DbException("all the pages in the bufferPool are dirty!");
-//    	discardPage(testPage.getId());
+//    	throw new DbException("all the pages in the bufferPool are dirty!");
+    	
+    	// 别给我LRU了，逮着是啥就是啥，随便了
+    	Page testPage=null;
+    	for(PageId pid:pages.keySet()) {
+    		testPage=pages.get(pid);
+    		if(testPage.isDirty()!=null) {// 是脏页不能动
+    			testPage=null;
+    			continue;
+    		}
+    		break;
+    		
+    	}
+    	// 所有页面都是脏页
+    	if(testPage==null)throw new DbException("all the pages in the bufferPool are dirty!");
+    	discardPage(testPage.getId());
     }
 
 }
