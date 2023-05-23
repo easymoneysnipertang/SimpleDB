@@ -87,7 +87,8 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
-    public Page getPage(TransactionId tid, PageId pid, Permissions perm)
+    // 关键的synchronized！
+    public synchronized Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
     	// 先判断是什么锁
@@ -108,7 +109,8 @@ public class BufferPool {
 //    		if(lockManager.isExistCycle(tid))// 存在环
 //    			throw new TransactionAbortedException();
     	}
-    	// -----中止其他人
+    	
+//    	// -----中止其他人
 //    	while(!isAcquired) {
 //    		// 初始化
 //    		Boolean temp=lockManager.tidOnWorking.get(tid);
