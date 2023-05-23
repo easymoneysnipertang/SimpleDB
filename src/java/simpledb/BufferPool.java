@@ -97,20 +97,23 @@ public class BufferPool {
     	long startTrying=System.currentTimeMillis();
     	// 循环获取锁
     	while(!isAcquired) {// 忙等待
-    		isAcquired=lockManager.accuireLock(pid, tid, lockType);
+//			try {
+//	            Thread.sleep(40);
+//	        }
+//	        catch (InterruptedException e) {
+//	            e.printStackTrace();
+//	        }
+    		isAcquired=lockManager.acquireLock(pid, tid, lockType);
     		long nowTrying =System.currentTimeMillis();
     		
     		// resolve deadlock
     		if(nowTrying-startTrying>300)// timeout!
     			// 放弃当前事务t
     			throw new TransactionAbortedException();
-//			try {
-//	            Thread.sleep(30);
-//	        }
-//	        catch (InterruptedException e) {
-//	            e.printStackTrace();
-//	        }
+//    		if(lockManager.isExistCycle(tid))// 存在环
+//    			throw new TransactionAbortedException();
     	}
+    	
     	
     	//page有自己独有的id(hashCode),page所属的table也有id(getTableId)
     	if(!pages.containsKey(pid)) {//查询的page不在bufferPool中
@@ -342,7 +345,7 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
     	// cache-> LRU原则
-//    	// we must not evict dirty pages.
+    	// we must not evict dirty pages.
 //    	for(int i=0;i<numPages;i++) {
 //			PageId pid=pageOrder.peek();
 //			Page p=pages.get(pid);
@@ -379,7 +382,6 @@ public class BufferPool {
     			continue;
     		}
     		break;
-    		
     	}
     	// 所有页面都是脏页
     	if(testPage==null)throw new DbException("all the pages in the bufferPool are dirty!");
