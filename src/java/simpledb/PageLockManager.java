@@ -16,9 +16,12 @@ public class PageLockManager {
 	*/
 	ConcurrentHashMap<PageId,ConcurrentHashMap<TransactionId,PageLock>> lockedPages;
 	ConcurrentHashMap<TransactionId, Set<TransactionId>> dependencyGraph;
+	public ConcurrentHashMap<TransactionId, Boolean> tidOnWorking;
+	
 	public PageLockManager() {
 		lockedPages=new ConcurrentHashMap<>();
-		//dependencyGraph=new ConcurrentHashMap<>();
+		dependencyGraph=new ConcurrentHashMap<>();
+		tidOnWorking=new ConcurrentHashMap<>();
 	}
 	
 	private synchronized void addDependency(TransactionId tid1,TransactionId tid2) {
@@ -95,12 +98,7 @@ public class PageLockManager {
 		Set<TransactionId> waiting=dependencyGraph.get(tid);
 		if(waiting==null)return;
 		for(TransactionId waitId:waiting) {
-			try {
-				Database.getBufferPool().transactionComplete(waitId, false);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			tidOnWorking.put(tid, false);// 别再工作了
 		}
 	}
 	
@@ -115,8 +113,8 @@ public class PageLockManager {
 			pageLocks.put(tid, lock);
 			// 一页上面可以同时被多个事务加锁
 			lockedPages.put(pid, pageLocks);
-//			// 无依赖(只要往里放了锁，就解除依赖)
-//			removeDependency(tid);
+			// 无依赖(只要往里放了锁，就解除依赖)
+			removeDependency(tid);
 			return true;
 		}
 		
@@ -125,9 +123,9 @@ public class PageLockManager {
 		if(!pageLocks.containsKey(tid)) {// 当前事务未对page上锁
 			if(lockType==PageLock.EXCLUSIVE)// 已经有锁，无法再上exclusive
 			{
-//				for(TransactionId temp:pageLocks.keySet()) {
-//					addDependency(tid,temp);// 有依赖(放不进去肯定有依赖)
-//				}
+				for(TransactionId temp:pageLocks.keySet()) {
+					addDependency(tid,temp);// 有依赖(放不进去肯定有依赖)
+				}
 				return false;
 			}
 			
@@ -137,7 +135,7 @@ public class PageLockManager {
 				pageLocks.put(tid, lock);
 				lockedPages.put(pid, pageLocks);
 				// 无依赖
-//				removeDependency(tid);
+				removeDependency(tid);
 				return true;
 			}
 			else {// 就一把锁
@@ -146,14 +144,14 @@ public class PageLockManager {
 					theOne=temp;
 				if(theOne.getType()==PageLock.EXCLUSIVE)// 如果是exclusive，没法
 				{
-//					addDependency(tid,theOne.getTid());// 有依赖
+					addDependency(tid,theOne.getTid());// 有依赖
 					return false;
 				}
 				else {
 					PageLock lock=new PageLock(tid,lockType);
 					pageLocks.put(tid, lock);
 					lockedPages.put(pid, pageLocks);
-//					removeDependency(tid);// 无依赖
+					removeDependency(tid);// 无依赖
 					return true;
 				}
 			}
@@ -171,13 +169,13 @@ public class PageLockManager {
 					if(pageLocks.size()==1) {
 						lock.setType(PageLock.EXCLUSIVE);
 						pageLocks.put(tid, lock);
-//						removeDependency(tid);// 消除依赖
+						removeDependency(tid);// 消除依赖
 						return true;
 					}
 					else {// 不止一个事务，其他事务对它还有读锁
-//						for(TransactionId temp:pageLocks.keySet()) {
-//							addDependency(tid,temp);// 有依赖(放不进去肯定有依赖)
-//						}
+						for(TransactionId temp:pageLocks.keySet()) {
+							addDependency(tid,temp);// 有依赖(放不进去肯定有依赖)
+						}
 						return false;// 不能改成写锁
 					}
 				}
@@ -189,15 +187,6 @@ public class PageLockManager {
 
 	// releasePage(TransactionId tid, PageId pid)
 	public synchronized boolean releaseLock(PageId pid,TransactionId tid) {
-//		if(lockedPages.containsKey(pid)) {
-//			ConcurrentHashMap<TransactionId,PageLock> pageLocks=lockedPages.get(pid);
-//			if(pageLocks.containsKey(tid)) {
-//				pageLocks.remove(tid);// 释放当前事务对page的锁
-//				if(pageLocks.size()==0)
-//					lockedPages.remove(pid);// 当前页上已没有事务对其有锁
-//				return true;
-//			}
-//		}
 		if(isHoldLock(pid,tid)) {
 			ConcurrentHashMap<TransactionId,PageLock> pageLocks=lockedPages.get(pid);
 			pageLocks.remove(tid);// 释放当前事务对page的锁

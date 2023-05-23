@@ -96,22 +96,35 @@ public class BufferPool {
     	// detect deadLock
     	long startTrying=System.currentTimeMillis();
     	// 循环获取锁
-    	while(!isAcquired) {// 忙等待
-//			try {
-//	            Thread.sleep(40);
-//	        }
-//	        catch (InterruptedException e) {
-//	            e.printStackTrace();
-//	        }
-    		isAcquired=lockManager.acquireLock(pid, tid, lockType);
-    		long nowTrying =System.currentTimeMillis();
+//    	// -----中止自己
+//    	while(!isAcquired) {// 忙等待
+//    		isAcquired=lockManager.acquireLock(pid, tid, lockType);
+//    		long nowTrying =System.currentTimeMillis();
+//    		
+//    		// resolve deadlock
+//    		if(nowTrying-startTrying>300)// timeout!
+//    			// 放弃当前事务t
+//    			throw new TransactionAbortedException();
+////    		if(lockManager.isExistCycle(tid))// 存在环
+////    			throw new TransactionAbortedException();
+//    	}
+    	// -----中止其他人
+    	while(!isAcquired) {
+    		// 初始化
+    		Boolean temp=lockManager.tidOnWorking.get(tid);
+    		if(temp==null)lockManager.tidOnWorking.put(tid, true);
     		
+    		if(lockManager.tidOnWorking.get(tid)) {// 当前线程在工作
+    			isAcquired=lockManager.acquireLock(pid, tid, lockType);
+    		}
+    		else {// 被其他事务中止
+    			throw new TransactionAbortedException();
+    		}
+    		long nowTrying =System.currentTimeMillis();
     		// resolve deadlock
     		if(nowTrying-startTrying>300)// timeout!
-    			// 放弃当前事务t
-    			throw new TransactionAbortedException();
-//    		if(lockManager.isExistCycle(tid))// 存在环
-//    			throw new TransactionAbortedException();
+    			// 中止其他事务
+    			lockManager.abortOthers(tid);
     	}
     	
     	
