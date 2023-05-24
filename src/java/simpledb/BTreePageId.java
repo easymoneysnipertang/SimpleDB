@@ -115,4 +115,7 @@ public class BTreePageId implements PageId {
 		return data;
 	}
 
+	public boolean getType() {
+		return true;
+	}
 }

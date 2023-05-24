@@ -79,5 +79,9 @@ public class HeapPageId implements PageId {
 
         return data;
     }
+    
+    public boolean getType() {
+    	return false;
+    }
 
 }

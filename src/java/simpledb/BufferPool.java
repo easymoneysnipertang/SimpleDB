@@ -88,64 +88,128 @@ public class BufferPool {
      * @param perm the requested permissions on the page
      */
     // 关键的synchronized！
-    public synchronized Page getPage(TransactionId tid, PageId pid, Permissions perm)
+    public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-    	// 先判断是什么锁
-    	int lockType=perm==Permissions.READ_ONLY?PageLock.SHARED:PageLock.EXCLUSIVE;
-    	boolean isAcquired=false;
-    	// detect deadLock
-    	long startTrying=System.currentTimeMillis();
-    	// 循环获取锁
-    	// -----中止自己
-    	while(!isAcquired) {// 忙等待
-    		isAcquired=lockManager.acquireLock(pid, tid, lockType);
-    		long nowTrying =System.currentTimeMillis();
-    		
-    		// resolve deadlock
-    		if(nowTrying-startTrying>300)// timeout!
-    			// 放弃当前事务t
-    			throw new TransactionAbortedException();
-//    		if(lockManager.isExistCycle(tid))// 存在环
-//    			throw new TransactionAbortedException();
+    	// 看是什么种类的page
+    	if(pid.getType()) {
+        	// 先判断是什么锁
+        	int lockType=perm==Permissions.READ_ONLY?PageLock.SHARED:PageLock.EXCLUSIVE;
+        	boolean isAcquired=false;
+        	// detect deadLock
+        	long startTrying=System.currentTimeMillis();
+        	// 循环获取锁
+        	// -----中止自己
+        	while(!isAcquired) {// 忙等待
+        		isAcquired=lockManager.acquireLock(pid, tid, lockType);
+        		long nowTrying =System.currentTimeMillis();
+        		
+        		// resolve deadlock
+        		if(nowTrying-startTrying>300)// timeout!
+        			// 放弃当前事务t
+        			throw new TransactionAbortedException();
+//        		if(lockManager.isExistCycle(tid))// 存在环
+//        			throw new TransactionAbortedException();
+        	}
+        	
+//        	// -----中止其他人
+//        	while(!isAcquired) {
+//        		// 初始化
+//        		Boolean temp=lockManager.tidOnWorking.get(tid);
+//        		if(temp==null)lockManager.tidOnWorking.put(tid, true);
+//        		
+//        		if(lockManager.tidOnWorking.get(tid)) {// 当前线程在工作
+//        			isAcquired=lockManager.acquireLock(pid, tid, lockType);
+//        		}
+//        		else {// 被其他事务中止
+//        			throw new TransactionAbortedException();
+//        		}
+//        		long nowTrying =System.currentTimeMillis();
+//        		// resolve deadlock
+//        		if(nowTrying-startTrying>300)// timeout!
+//        			// 中止其他事务
+//        			lockManager.abortOthers(tid);
+//        	}
+        	
+        	
+        	//page有自己独有的id(hashCode),page所属的table也有id(getTableId)
+        	if(!pages.containsKey(pid)) {//查询的page不在bufferPool中
+        		//从文件中读取page，用dbFile
+        		//读取文件，catalog.getDatabaseFile()
+        		DbFile temp=Database.getCatalog().getDatabaseFile(pid.getTableId());
+        		Page page=temp.readPage(pid);
+        		
+        		if(pages.size()>=numPages) {// insufficient space
+        			evictPage();
+        		}
+        		
+        		//读入bufferPool
+    			pages.put(page.getId(), page);
+    			//pageOrder.offer(pid);
+        	}
+            return pages.get(pid);//lock? insufficient? not necessary for lab1?
     	}
     	
-//    	// -----中止其他人
-//    	while(!isAcquired) {
-//    		// 初始化
-//    		Boolean temp=lockManager.tidOnWorking.get(tid);
-//    		if(temp==null)lockManager.tidOnWorking.put(tid, true);
-//    		
-//    		if(lockManager.tidOnWorking.get(tid)) {// 当前线程在工作
-//    			isAcquired=lockManager.acquireLock(pid, tid, lockType);
-//    		}
-//    		else {// 被其他事务中止
-//    			throw new TransactionAbortedException();
-//    		}
-//    		long nowTrying =System.currentTimeMillis();
-//    		// resolve deadlock
-//    		if(nowTrying-startTrying>300)// timeout!
-//    			// 中止其他事务
-//    			lockManager.abortOthers(tid);
-//    	}
-    	
-    	
-    	//page有自己独有的id(hashCode),page所属的table也有id(getTableId)
-    	if(!pages.containsKey(pid)) {//查询的page不在bufferPool中
-    		//从文件中读取page，用dbFile
-    		//读取文件，catalog.getDatabaseFile()
-    		DbFile temp=Database.getCatalog().getDatabaseFile(pid.getTableId());
-    		Page page=temp.readPage(pid);
-    		
-    		if(pages.size()>=numPages) {// insufficient space
-    			evictPage();
+    	else {
+    		synchronized(this) {
+    	    	// 先判断是什么锁
+    	    	int lockType=perm==Permissions.READ_ONLY?PageLock.SHARED:PageLock.EXCLUSIVE;
+    	    	boolean isAcquired=false;
+    	    	// detect deadLock
+    	    	long startTrying=System.currentTimeMillis();
+    	    	// 循环获取锁
+    	    	// -----中止自己
+//    	    	while(!isAcquired) {// 忙等待
+//    	    		isAcquired=lockManager.acquireLock(pid, tid, lockType);
+//    	    		long nowTrying =System.currentTimeMillis();
+//    	    		
+//    	    		// resolve deadlock
+//    	    		if(nowTrying-startTrying>300)// timeout!
+//    	    			// 放弃当前事务t
+//    	    			throw new TransactionAbortedException();
+////    	    		if(lockManager.isExistCycle(tid))// 存在环
+////    	    			throw new TransactionAbortedException();
+//    	    	}
+    	    	
+//    	    	// -----中止其他人
+    	    	while(!isAcquired) {
+    	    		// 初始化
+    	    		Boolean temp=lockManager.tidOnWorking.get(tid);
+    	    		if(temp==null)lockManager.tidOnWorking.put(tid, true);
+    	    		
+    	    		if(lockManager.tidOnWorking.get(tid)) {// 当前线程在工作
+    	    			isAcquired=lockManager.acquireLock(pid, tid, lockType);
+    	    		}
+    	    		else {// 被其他事务中止
+    	    			throw new TransactionAbortedException();
+    	    		}
+    	    		long nowTrying =System.currentTimeMillis();
+    	    		// resolve deadlock
+    	    		if(nowTrying-startTrying>300)// timeout!
+    	    			// 中止其他事务
+    	    			lockManager.abortOthers(tid);
+    	    	}
+    	    	
+    	    	
+    	    	//page有自己独有的id(hashCode),page所属的table也有id(getTableId)
+    	    	if(!pages.containsKey(pid)) {//查询的page不在bufferPool中
+    	    		//从文件中读取page，用dbFile
+    	    		//读取文件，catalog.getDatabaseFile()
+    	    		DbFile temp=Database.getCatalog().getDatabaseFile(pid.getTableId());
+    	    		Page page=temp.readPage(pid);
+    	    		
+    	    		if(pages.size()>=numPages) {// insufficient space
+    	    			evictPage();
+    	    		}
+    	    		
+    	    		//读入bufferPool
+    				pages.put(page.getId(), page);
+    				//pageOrder.offer(pid);
+    	    	}
+    	        return pages.get(pid);//lock? insufficient? not necessary for lab1?
     		}
-    		
-    		//读入bufferPool
-			pages.put(page.getId(), page);
-			//pageOrder.offer(pid);
     	}
-        return pages.get(pid);//lock? insufficient? not necessary for lab1?
+    	
     }
 
     /**
