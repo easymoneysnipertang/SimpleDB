@@ -159,10 +159,10 @@ public class Aggregate extends Operator {
     	if(gbfield!=-1) {// be informative
 			new String();
 			td=new TupleDesc(new Type[] {it.getTupleDesc().getFieldType(0),it.getTupleDesc().getFieldType(1)}
-    		,new String[] {it.getTupleDesc().getFieldName(0),String.format("%s(%s)",aop.toString(),it.getTupleDesc().getFieldName(1))}) ;
+    		,new String[] {it.getTupleDesc().getFieldName(0),""}) ;
 		} else
     		td=new TupleDesc(new Type[] {it.getTupleDesc().getFieldType(0)}
-    		,new String[] {String.format("%s(%s)",aop.toString(),it.getTupleDesc().getFieldName(0))}) ;
+    		,new String[] {""}) ;
     		
 		return td;
     }

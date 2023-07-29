@@ -79,9 +79,9 @@ public class StringAggregator implements Aggregator {
     	public StrAggIterator() {
     		// 构造tupleDesc->typeAr,fieldAr
     		if(gbField==Aggregator.NO_GROUPING)
-    			td=new TupleDesc(new Type[] {Type.INT_TYPE},new String[] {"aggregateVal"});
+    			td=new TupleDesc(new Type[] {Type.INT_TYPE},new String[] {""});
     		else 
-    			td=new TupleDesc(new Type[] {gbFieldType,Type.INT_TYPE},new String []{"groupVal","aggregateVal"});
+    			td=new TupleDesc(new Type[] {gbFieldType,Type.INT_TYPE},new String []{"",""});
     	}
     	
 		@Override
